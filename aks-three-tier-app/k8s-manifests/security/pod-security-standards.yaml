@@ -1,0 +1,453 @@
+# Pod Security Standards Configuration for AKS
+# Implements security policies across all namespaces with Azure-specific configurations
+
+# Frontend namespace - baseline security
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    name: frontend
+---
+# Backend namespace - restricted security
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    name: backend
+---
+# Database namespace - restricted security
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: database
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    name: database
+---
+# Monitoring namespace - baseline security
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: restricted
+    name: monitoring
+---
+# Azure Network Policy for Frontend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-azure-policy
+  namespace: frontend
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend-web
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: backend
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Azure-specific egress rules
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8080  # Azure Monitor
+    - protocol: TCP
+      port: 5671  # Azure Service Bus
+---
+# Azure Network Policy for Backend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-azure-policy
+  namespace: backend
+spec:
+  podSelector:
+    matchLabels:
+      app: backend-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: frontend
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Azure services egress
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 8080  # Azure Monitor
+    - protocol: TCP
+      port: 5671  # Azure Service Bus
+---
+# Azure Network Policy for Database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-azure-policy
+  namespace: database
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: backend
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 5432
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 8080  # Azure Monitor
+---
+# Azure Security Context for Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-security-template
+  namespace: frontend
+  annotations:
+    description: "Security template for frontend deployment on AKS"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-security-template
+  template:
+    metadata:
+      labels:
+        app: frontend-security-template
+        azure.workload.identity/use: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: frontend-workload-identity-sa
+      containers:
+      - name: frontend
+        image: nginx:1.25-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        ports:
+        - containerPort: 80
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: var-cache-volume
+          mountPath: /var/cache/nginx
+        - name: var-run-volume
+          mountPath: /var/run
+        env:
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-identity
+              key: client-id
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: var-cache-volume
+        emptyDir: {}
+      - name: var-run-volume
+        emptyDir: {}
+---
+# Azure Workload Identity Service Account for Frontend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frontend-workload-identity-sa
+  namespace: frontend
+  annotations:
+    azure.workload.identity/client-id: "FRONTEND_CLIENT_ID"
+    azure.workload.identity/tenant-id: "TENANT_ID"
+  labels:
+    azure.workload.identity/use: "true"
+---
+# Azure Security Context for Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-security-template
+  namespace: backend
+  annotations:
+    description: "Security template for backend deployment on AKS"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-security-template
+  template:
+    metadata:
+      labels:
+        app: backend-security-template
+        azure.workload.identity/use: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: backend-workload-identity-sa
+      containers:
+      - name: backend
+        image: node:18-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        ports:
+        - containerPort: 3000
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: app-logs
+          mountPath: /app/logs
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        env:
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-identity
+              key: client-id
+        - name: NODE_ENV
+          value: "production"
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: app-logs
+        emptyDir: {}
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: azure-keyvault-csi
+---
+# Azure Workload Identity Service Account for Backend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend-workload-identity-sa
+  namespace: backend
+  annotations:
+    azure.workload.identity/client-id: "BACKEND_CLIENT_ID"
+    azure.workload.identity/tenant-id: "TENANT_ID"
+  labels:
+    azure.workload.identity/use: "true"
+---
+# Azure Defender Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-security-config
+  namespace: kube-system
+data:
+  defender.yaml: |
+    apiVersion: security.microsoft.com/v1beta1
+    kind: DefenderConfiguration
+    metadata:
+      name: azure-defender-config
+    spec:
+      enableRealTimeProtection: true
+      enableBehaviorBasedDetection: true
+      enableCloudBasedProtection: true
+      threatDetectionSettings:
+        enableContainerThreatDetection: true
+        enableNetworkThreatDetection: true
+        enableFileSystemThreatDetection: true
+      complianceSettings:
+        enableCISBenchmark: true
+        enablePCIDSS: true
+        enableSOC2: true
+---
+# Azure Policy Enforcement
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-policy-config
+  namespace: kube-system
+data:
+  policy.yaml: |
+    apiVersion: policy.azure.com/v1beta1
+    kind: ClusterPolicy
+    metadata:
+      name: azure-security-baseline
+    spec:
+      enforcementMode: enforced
+      rules:
+      - name: require-non-root-containers
+        match:
+          resources:
+            kinds: [Pod]
+        validate:
+          message: "Containers must run as non-root user"
+          pattern:
+            spec:
+              securityContext:
+                runAsNonRoot: true
+              containers:
+              - name: "*"
+                securityContext:
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+      - name: require-workload-identity
+        match:
+          resources:
+            kinds: [Pod]
+        validate:
+          message: "Pods must use Azure Workload Identity"
+          pattern:
+            metadata:
+              labels:
+                azure.workload.identity/use: "true"
+            spec:
+              serviceAccountName: "*workload-identity-sa"
+      - name: require-azure-key-vault-integration
+        match:
+          resources:
+            kinds: [Pod]
+          namespaces: [backend, database]
+        validate:
+          message: "Sensitive workloads must integrate with Azure Key Vault"
+          pattern:
+            spec:
+              volumes:
+              - name: secrets-store
+                csi:
+                  driver: secrets-store.csi.k8s.io

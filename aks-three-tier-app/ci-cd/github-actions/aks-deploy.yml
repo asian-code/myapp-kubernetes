@@ -1,0 +1,432 @@
+# CI/CD Pipeline for AKS Three-Tier Application
+# This workflow handles building, testing, and deploying the application to Azure
+
+name: AKS Three-Tier App CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'app-src/**'
+      - 'k8s-manifests/**'
+      - 'terraform/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app-src/**'
+      - 'k8s-manifests/**'
+      - 'terraform/**'
+
+env:
+  AZURE_REGION: eastus
+  AKS_CLUSTER_NAME: three-tier-aks-cluster
+  AKS_RESOURCE_GROUP: three-tier-aks-rg
+  ACR_NAME: threetierappacr
+  ENVIRONMENT: production
+
+jobs:
+  # Security and Code Quality Checks
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Checkov static analysis
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .
+        framework: terraform,kubernetes,dockerfile
+        output_format: sarif
+        output_file_path: checkov-results.sarif
+
+  # Terraform Plan and Validate
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.x
+
+    - name: Terraform Format Check
+      run: terraform fmt -check -recursive
+
+    - name: Terraform Init
+      run: terraform init -backend=false
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Run tflint
+      uses: terraform-linters/setup-tflint@v3
+      with:
+        tflint_version: v0.44.1
+    - run: tflint --init
+      working-directory: terraform
+    - run: tflint
+      working-directory: terraform
+
+  # Build and Test Applications
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: [security-scan]
+    strategy:
+      matrix:
+        app: [frontend, backend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.ACR_NAME }}
+
+    - name: Build and push Docker image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build image
+        docker build \
+          -t ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/${{ matrix.app }}:$IMAGE_TAG \
+          -t ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/${{ matrix.app }}:latest \
+          app-src/${{ matrix.app }}
+        
+        # Run security scan on image
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/${{ matrix.app }}:$IMAGE_TAG
+        
+        # Push image
+        docker push ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/${{ matrix.app }}:$IMAGE_TAG
+        docker push ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/${{ matrix.app }}:latest
+
+    - name: Run application tests
+      if: matrix.app == 'backend'
+      run: |
+        # Run unit tests for backend
+        cd app-src/backend
+        npm ci
+        npm run test
+        npm run test:coverage
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always() && matrix.app == 'backend'
+      with:
+        name: test-results
+        path: app-src/backend/coverage/
+
+  # Infrastructure Deployment (Terraform)
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [terraform-validate, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: terraform
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.x
+
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Plan
+      run: terraform plan -var-file="terraform.tfvars" -out=tfplan
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve tfplan
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+
+  # Application Deployment (Kubernetes)
+  deploy-applications:
+    name: Deploy Applications
+    runs-on: ubuntu-latest
+    needs: [build-and-test, deploy-infrastructure]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.12.0'
+
+    - name: Validate Kubernetes manifests
+      run: |
+        # Validate all Kubernetes YAML files
+        find k8s-manifests -name "*.yaml" -exec kubectl apply --dry-run=client --validate=true -f {} \;
+
+    - name: Deploy namespace configurations
+      run: |
+        # Create namespaces if they don't exist
+        kubectl create namespace frontend --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace backend --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace database --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy security configurations
+      run: |
+        kubectl apply -f k8s-manifests/security/
+
+    - name: Deploy database
+      run: |
+        kubectl apply -f k8s-manifests/database/
+        # Wait for database to be ready
+        kubectl rollout status statefulset/postgresql -n database --timeout=300s
+
+    - name: Update and deploy backend
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update image in backend deployment
+        sed -i "s|image: node:18-alpine|image: ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/backend:$IMAGE_TAG|g" k8s-manifests/backend/backend-api.yaml
+        kubectl apply -f k8s-manifests/backend/
+        # Wait for backend to be ready
+        kubectl rollout status deployment/backend-api -n backend --timeout=300s
+
+    - name: Update and deploy frontend
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update image in frontend deployment
+        sed -i "s|image: nginx:1.25-alpine|image: ${{ env.ACR_NAME }}.azurecr.io/three-tier-app/frontend:$IMAGE_TAG|g" k8s-manifests/frontend/frontend-web.yaml
+        kubectl apply -f k8s-manifests/frontend/
+        # Wait for frontend to be ready
+        kubectl rollout status deployment/frontend-web -n frontend --timeout=300s
+
+    - name: Deploy monitoring
+      run: |
+        kubectl apply -f k8s-manifests/monitoring/
+        # Wait for monitoring to be ready
+        kubectl rollout status deployment/prometheus -n monitoring --timeout=300s
+        kubectl rollout status deployment/grafana -n monitoring --timeout=300s
+
+    - name: Deploy ingress controller
+      run: |
+        # Install NGINX Ingress Controller using Helm
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz
+
+    - name: Run smoke tests
+      run: |
+        # Wait for all pods to be ready
+        kubectl wait --for=condition=ready pod -l app=frontend-web -n frontend --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=backend-api -n backend --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=postgresql -n database --timeout=300s
+
+        # Get load balancer IP
+        echo "Waiting for load balancer to be ready..."
+        sleep 60
+        
+        # Basic health checks
+        kubectl get pods -A
+        kubectl get services -A
+        kubectl get ingress -A
+
+    - name: Configure Azure Key Vault integration
+      run: |
+        # Deploy Azure Key Vault Secret Store CSI Driver
+        helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+        helm repo update
+        helm upgrade --install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver \
+          --namespace kube-system \
+          --set syncSecret.enabled=true \
+          --set enableSecretRotation=true
+
+        # Deploy Azure Key Vault Provider
+        kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
+
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "✅ Deployment successful!"
+          # Get the external IP
+          EXTERNAL_IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "Application available at: http://$EXTERNAL_IP"
+        else
+          echo "❌ Deployment failed!"
+          kubectl get events --sort-by=.metadata.creationTimestamp -A
+        fi
+
+  # Rollback on failure
+  rollback-on-failure:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-applications]
+    if: failure() && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Rollback deployments
+      run: |
+        echo "Rolling back deployments..."
+        kubectl rollout undo deployment/frontend-web -n frontend
+        kubectl rollout undo deployment/backend-api -n backend
+        
+        # Wait for rollback to complete
+        kubectl rollout status deployment/frontend-web -n frontend --timeout=300s
+        kubectl rollout status deployment/backend-api -n backend --timeout=300s
+        
+        echo "Rollback completed!"
+
+  # Azure Monitor Integration
+  setup-monitoring:
+    name: Setup Azure Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-applications]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+
+    - name: Enable Container Insights
+      run: |
+        # Enable monitoring addon for AKS
+        az aks enable-addons \
+          --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
+          --name ${{ env.AKS_CLUSTER_NAME }} \
+          --addons monitoring
+
+    - name: Configure Log Analytics workspace
+      run: |
+        # Create Log Analytics workspace if it doesn't exist
+        WORKSPACE_ID=$(az monitor log-analytics workspace create \
+          --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
+          --workspace-name three-tier-app-logs \
+          --location ${{ env.AZURE_REGION }} \
+          --query id -o tsv)
+        
+        echo "Log Analytics Workspace ID: $WORKSPACE_ID"
+
+  # Performance and Load Testing (Optional)
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    needs: [deploy-applications]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure CLI login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get Application URL
+      run: |
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+        EXTERNAL_IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        echo "APP_URL=http://$EXTERNAL_IP" >> $GITHUB_ENV
+
+    - name: Run load tests with k6
+      uses: grafana/k6-action@v0.2.0
+      with:
+        filename: tests/load-test.js
+      env:
+        APP_URL: ${{ env.APP_URL }}
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-results
+        path: k6-results.json
