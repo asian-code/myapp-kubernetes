@@ -1,4 +1,3 @@
-# VPC Module - Simplified 2-subnet architecture (Public + Private)
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.0"
@@ -35,9 +34,7 @@ module "vpc" {
   create_flow_log_cloudwatch_log_group            = true
   flow_log_cloudwatch_log_group_retention_in_days = var.log_retention_in_days
 
-  tags = merge(var.tags, {
-    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
-  })
+  tags = var.tags
 }
 # Additional Security Group for EKS nodes - All workloads
 resource "aws_security_group" "additional_node_sg" {
