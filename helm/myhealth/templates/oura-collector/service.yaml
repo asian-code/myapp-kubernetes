@@ -1,0 +1,20 @@
+{{- if .Values.ouraCollector.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: oura-collector-metrics
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+  selector:
+    {{- include "myhealth.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+{{- end }}

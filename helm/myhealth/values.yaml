@@ -1,0 +1,218 @@
+# Global settings
+global:
+  environment: dev
+  region: us-east-1
+  domain: myhealth.eric-n.com
+  namespace: myhealth
+  tlsSecretName: myhealth-tls
+
+# External Secrets configuration (AWS Secrets Manager via ESO)
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreName: aws-secretsmanager
+  serviceAccountName: external-secrets
+  serviceAccountNamespace: external-secrets-system
+  targetSecretName: myhealth-secrets
+  aws:
+    region: us-east-1
+    secrets:
+      dbCredentials: "myhealth/db-credentials"
+      jwtSecret: "myhealth/jwt-secret"
+      ouraCredentials: "myhealth/oura-credentials"
+
+# Image registry (ECR)
+imageRegistry: "211125604618.dkr.ecr.us-east-1.amazonaws.com"
+imagePullPolicy: IfNotPresent
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Oura Collector (CronJob)
+ouraCollector:
+  enabled: true
+  image:
+    repository: "myhealth/oura-collector"
+    tag: "latest"
+  schedule: "0 1 * * *"  # Run daily at 1 AM UTC
+  env:
+    processorUrl: "http://data-processor:8080"
+    logLevel: "info"
+    dbSSLMode: "disable"  # Use 'require' for production
+    userId: ""  # Set via --set - your user UUID from database
+  secret:
+    name: myhealth-secrets
+    dbHostField: db_host
+    dbUserField: db_user
+    dbPassField: db_password
+    dbNameField: db_name
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Data Processor (Deployment)
+dataProcessor:
+  enabled: true
+  image:
+    repository: "myhealth/data-processor"
+    tag: "latest"
+  replicaCount: 2
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  env:
+    logLevel: "info"
+    dbSSLMode: "disable"  # Use 'require' for production
+    dbMaxConns: "10"
+  secret:
+    name: myhealth-secrets
+    dbHostField: db_host
+    dbUserField: db_user
+    dbPassField: db_password
+    dbNameField: db_name
+
+# API Service (Deployment)
+apiService:
+  enabled: true
+  image:
+    repository: "myhealth/api-service"
+    tag: "latest"
+  replicaCount: 3
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 300m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  env:
+    logLevel: "info"
+    processorUrl: "http://data-processor:8080"
+    dbSSLMode: "disable"  # Use 'require' for production
+    dbMaxConns: "10"
+  oauth:
+    clientId: ""  # Set via --set or external secrets
+    clientSecret: ""  # Set via --set or external secrets
+    redirectUri: "https://myhealth.eric-n.com/api/callback"
+  secret:
+    name: myhealth-secrets
+    jwtSecretField: jwt_secret
+    dbHostField: db_host
+    dbUserField: db_user
+    dbPassField: db_password
+    ouraClientIdField: oura_client_id
+    ouraClientSecretField: oura_client_secret
+
+# Database info (used for templating secrets)
+database:
+  host: "myhealth-db.cluster-xxxxx.us-east-1.rds.amazonaws.com"
+  username: "myhealth_user"
+  password: "change-me"  # Only used if ExternalSecrets disabled
+  name: "myhealth"
+
+# Oura + JWT secret placeholders (used only if ExternalSecrets disabled)
+ouraApiKey: ""
+jwtSecret: ""
+
+# Istio Configuration
+istio:
+  enabled: true
+  gateway:
+    name: myhealth-gateway
+    namespace: myhealth
+    hosts:
+      - myhealth.eric-n.com
+  virtualServices:
+    apiService:
+      name: api-service-vs
+      hosts:
+        - myhealth.eric-n.com
+      gateways:
+        - myhealth-gateway
+      paths:
+        - /api
+
+# Prometheus (dependency values can be overridden here)
+prometheus:
+  enabled: true
+  server:
+    retention: "15d"
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+# Grafana (dependency overrides)
+grafana:
+  enabled: true
+  adminUser: admin
+  adminPassword: changeme
+  service:
+    type: ClusterIP
+    port: 3000
+  persistence:
+    enabled: true
+    size: 5Gi
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server
+          isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+  dashboardsConfigMaps:
+    default: "grafana-dashboards"
+
+# Dashboards toggle
+dashboards:
+  enabled: true
+  ouraMetrics: true
+  serviceHealth: true

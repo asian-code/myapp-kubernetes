@@ -1,0 +1,86 @@
+name: 'PR Validation'
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-checks:
+    name: 'PR Validation Checks'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Check PR Title
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const title = pr.title;
+          
+          // Check if title follows conventional commits
+          const conventionalCommit = /^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\(.+\))?!?: .+/;
+          if (!conventionalCommit.test(title)) {
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ PR title should follow conventional commits format: `type(scope): description`\n\nExamples: `feat(helm): add prometheus alerts`, `fix(api-service): fix database connection`'
+            });
+          }
+    
+    - name: Check for Breaking Changes
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const changedFiles = context.payload.pull_request.changed_files;
+          
+          if (changedFiles > 50) {
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ This PR changes many files (' + changedFiles + '). Consider breaking it into smaller PRs.'
+            });
+          }
+    
+    - name: Summary Comment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const summary = `
+## 🔍 Automated PR Checks
+
+### Validations Running:
+- ✅ Terraform Plan (if terraform/ changed)
+- ✅ Helm Lint & Validation (if helm/ changed)
+- ✅ Go Tests (if services/ changed)
+- ✅ Docker Build (if services/ changed)
+
+### Before Merge:
+1. Ensure all status checks pass
+2. Request reviews from team leads
+3. Verify changes don't conflict with staging/prod
+
+### Manual Deployment:
+- Dev: Automatic on PR merge
+- Staging: Automatic after Dev passes
+- Production: Requires manual approval
+
+See workflow status below ⬇️
+`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });

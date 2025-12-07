@@ -1,21 +1,37 @@
-variable "oura_api_key" {
+variable "oura_client_id" {
   type        = string
   sensitive   = true
-  description = "Oura Ring API Key"
+  description = "Oura OAuth Client ID"
+  # No default - must be provided by caller module
+}
+
+variable "oura_client_secret" {
+  type        = string
+  sensitive   = true
+  description = "Oura OAuth Client Secret"
+  # No default - must be provided by caller module
 }
 
 variable "db_username" {
   type        = string
   sensitive   = true
-  default     = null
-  description = "Database username. If not provided, a random username will be generated."
+  description = "Database username. Must match the RDS configuration."
+
+  validation {
+    condition     = var.db_username != null && length(var.db_username) > 0
+    error_message = "db_username is required and cannot be empty."
+  }
 }
 
 variable "db_password" {
   type        = string
   sensitive   = true
-  default     = null
-  description = "Database password. If not provided, a random password will be generated."
+  description = "Database password from the RDS module."
+
+  validation {
+    condition     = var.db_password != null && length(var.db_password) > 0
+    error_message = "db_password is required and cannot be empty."
+  }
 }
 
 variable "db_host" {

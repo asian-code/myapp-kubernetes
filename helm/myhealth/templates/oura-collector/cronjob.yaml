@@ -1,0 +1,59 @@
+{{- if .Values.ouraCollector.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: oura-collector
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  schedule: "{{ .Values.ouraCollector.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "myhealth.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: collector
+        spec:
+          serviceAccountName: {{ default (include "myhealth.fullname" .) .Values.serviceAccount.name }}
+          containers:
+            - name: oura-collector
+              image: "{{ .Values.imageRegistry }}/{{ .Values.ouraCollector.image.repository }}:{{ .Values.ouraCollector.image.tag }}"
+              imagePullPolicy: {{ .Values.imagePullPolicy }}
+              env:
+                - name: PROCESSOR_URL
+                  value: "{{ .Values.ouraCollector.env.processorUrl }}"
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.ouraCollector.secret.name }}
+                      key: {{ .Values.ouraCollector.secret.dbHostField }}
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.ouraCollector.secret.name }}
+                      key: {{ .Values.ouraCollector.secret.dbUserField }}
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.ouraCollector.secret.name }}
+                      key: {{ .Values.ouraCollector.secret.dbPassField }}
+                - name: DB_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.ouraCollector.secret.name }}
+                      key: {{ .Values.ouraCollector.secret.dbNameField }}
+                - name: DB_SSLMODE
+                  value: "{{ .Values.ouraCollector.env.dbSSLMode | default "require" }}"
+                - name: USER_ID
+                  value: "{{ .Values.ouraCollector.env.userId }}"
+                - name: LOG_LEVEL
+                  value: "{{ .Values.ouraCollector.env.logLevel | default "info" }}"
+              resources:
+                {{- toYaml .Values.ouraCollector.resources | nindent 16 }}
+          restartPolicy: OnFailure
+{{- end }}

@@ -1,0 +1,106 @@
+{{- if .Values.apiService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.apiService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "myhealth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: {{ default (include "myhealth.fullname" .) .Values.serviceAccount.name }}
+      containers:
+        - name: api-service
+          image: "{{ .Values.imageRegistry }}/{{ .Values.apiService.image.repository }}:{{ .Values.apiService.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.apiService.service.targetPort }}
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbHostField }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbUserField }}
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbPassField }}
+            - name: DATABASE_NAME
+              value: "myhealth"
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbHostField }}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbUserField }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.dbPassField }}
+            - name: DB_NAME
+              value: "myhealth"
+            - name: DB_SSLMODE
+              value: "{{ .Values.apiService.env.dbSSLMode | default "require" }}"
+            - name: DB_MAX_CONNS
+              value: "{{ .Values.apiService.env.dbMaxConns | default "10" }}"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.jwtSecretField }}
+            - name: OURA_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.ouraClientIdField }}
+            - name: OURA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiService.secret.name }}
+                  key: {{ .Values.apiService.secret.ouraClientSecretField }}
+            - name: OURA_REDIRECT_URI
+              value: "{{ .Values.apiService.oauth.redirectUri }}"
+            - name: PROCESSOR_URL
+              value: "{{ .Values.apiService.env.processorUrl }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.apiService.env.logLevel }}"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.apiService.resources | nindent 12 }}
+{{- end }}

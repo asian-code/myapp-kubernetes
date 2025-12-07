@@ -1,0 +1,34 @@
+{{- if .Values.istio.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ .Values.istio.virtualServices.apiService.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  hosts:
+    {{- range .Values.istio.virtualServices.apiService.hosts }}
+    - "{{ . }}"
+    {{- end }}
+  gateways:
+    {{- range .Values.istio.virtualServices.apiService.gateways }}
+    - "{{ . }}"
+    {{- end }}
+  http:
+    - match:
+        {{- range .Values.istio.virtualServices.apiService.paths }}
+        - uri:
+            prefix: "{{ . }}"
+        {{- end }}
+      route:
+        - destination:
+            host: api-service
+            port:
+              number: 8080
+          weight: 100
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+{{- end }}

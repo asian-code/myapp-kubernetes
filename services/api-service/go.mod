@@ -10,6 +10,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/rs/cors v1.10.1
+	golang.org/x/crypto v0.17.0
 )
 
 replace github.com/asian-code/myapp-kubernetes/services/shared => ../shared

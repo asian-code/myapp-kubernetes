@@ -1,0 +1,64 @@
+name: 'Helm Lint & Validate'
+
+on:
+  pull_request:
+    paths:
+      - 'helm/**'
+      - '.github/workflows/helm-validate.yml'
+
+jobs:
+  helm-lint:
+    name: 'Helm Lint'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.13.0'
+    
+    - name: Add Helm Repos
+      run: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo update
+    
+    - name: Helm Lint
+      run: helm lint helm/myhealth --strict
+    
+    - name: Helm Template
+      run: |
+        helm template myhealth helm/myhealth --values helm/myhealth/values.yaml > /tmp/manifest.yaml
+    
+    - name: Kubeval
+      uses: instrumenta/kubeval-action@master
+      with:
+        files: /tmp/manifest.yaml
+        strict: true
+    
+    - name: Comment Lint Results on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ Helm chart linting and validation passed successfully'
+          });
+      if: success()
+    
+    - name: Comment Lint Failure on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '❌ Helm chart linting/validation failed. Check logs for details.'
+          });
+      if: failure()

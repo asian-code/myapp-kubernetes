@@ -1,0 +1,219 @@
+{{- if and .Values.grafana.enabled .Values.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  service-health.json: |
+    {
+      "dashboard": {
+        "title": "Service Health",
+        "tags": ["myhealth", "services"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "HTTP Requests/sec (by status)",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total[5m])) by (status)"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate (%)",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service) / sum(rate(http_requests_total[5m])) by (service) * 100"
+              }
+            ]
+          },
+          {
+            "title": "HTTP Latency p99 (seconds)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))"
+              }
+            ]
+          },
+          {
+            "title": "In-Progress Requests",
+            "targets": [
+              {
+                "expr": "sum(http_requests_in_progress) by (service)"
+              }
+            ]
+          },
+          {
+            "title": "DB Query Latency p95 (seconds)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (query_type, le))"
+              }
+            ]
+          },
+          {
+            "title": "Database Connections",
+            "targets": [
+              {
+                "expr": "db_connections_open"
+              }
+            ]
+          },
+          {
+            "title": "Pod Memory Usage (MB)",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{pod=~\"api-service|data-processor|oura-collector\"} / 1024 / 1024"
+              }
+            ]
+          },
+          {
+            "title": "Pod CPU Usage (%)",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{pod=~\"api-service|data-processor|oura-collector\"}[5m]) * 100"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+  oura-metrics.json: |
+    {
+      "dashboard": {
+        "title": "Oura Metrics",
+        "tags": ["myhealth", "oura", "health"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Collection Runs Total",
+            "targets": [
+              {
+                "expr": "collector_runs_total"
+              }
+            ]
+          },
+          {
+            "title": "Collection Success Rate (%)",
+            "targets": [
+              {
+                "expr": "(collector_runs_total - collector_errors_total) / collector_runs_total * 100"
+              }
+            ]
+          },
+          {
+            "title": "Data Points Collected (Last 24h)",
+            "targets": [
+              {
+                "expr": "increase(data_points_collected_total[24h])"
+              }
+            ]
+          },
+          {
+            "title": "Collection Duration (seconds)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(collector_run_duration_seconds_bucket[5m]))"
+              }
+            ]
+          },
+          {
+            "title": "Last Successful Run (Hours Ago)",
+            "targets": [
+              {
+                "expr": "(time() - collector_last_successful_run_timestamp_seconds) / 3600"
+              }
+            ]
+          },
+          {
+            "title": "API Errors by Type",
+            "targets": [
+              {
+                "expr": "sum(increase(collector_errors_total[1h])) by (error_type)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+  system-metrics.json: |
+    {
+      "dashboard": {
+        "title": "System Metrics",
+        "tags": ["myhealth", "system", "kubernetes"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Node CPU Usage (%)",
+            "targets": [
+              {
+                "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
+              }
+            ]
+          },
+          {
+            "title": "Node Memory Usage (%)",
+            "targets": [
+              {
+                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100"
+              }
+            ]
+          },
+          {
+            "title": "Node Disk Usage (%)",
+            "targets": [
+              {
+                "expr": "(1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100"
+              }
+            ]
+          },
+          {
+            "title": "Pod Count by Namespace",
+            "targets": [
+              {
+                "expr": "sum(kube_pod_info) by (namespace)"
+              }
+            ]
+          },
+          {
+            "title": "Pod Restarts (Last Hour)",
+            "targets": [
+              {
+                "expr": "sum(increase(kube_pod_container_status_restarts_total[1h])) by (pod)"
+              }
+            ]
+          },
+          {
+            "title": "Network I/O (bytes/sec)",
+            "targets": [
+              {
+                "expr": "rate(node_network_receive_bytes_total[5m]) + rate(node_network_transmit_bytes_total[5m])"
+              }
+            ]
+          },
+          {
+            "title": "Up Targets",
+            "targets": [
+              {
+                "expr": "count(up{job=~\"prometheus|alertmanager|node-exporter\"} == 1)"
+              }
+            ]
+          },
+          {
+            "title": "Down Targets",
+            "targets": [
+              {
+                "expr": "count(up{job=~\"prometheus|alertmanager|node-exporter\"} == 0)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+{{- end }}

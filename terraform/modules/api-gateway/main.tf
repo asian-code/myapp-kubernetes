@@ -16,10 +16,10 @@ module "api_gateway" {
   }
 
   # Custom domain
-  domain_name                = "myhealth.eric-n.com"
-  domain_name_certificate_arn = var.acm_certificate_arn
-  create_certificate         = false
-  create_domain_records      = false
+  domain_name                 = var.domain_name != "" ? var.domain_name : null
+  domain_name_certificate_arn = var.acm_certificate_arn != "" ? var.acm_certificate_arn : null
+  create_certificate          = false
+  create_domain_records       = var.create_domain_records
 
   # Routes & Integration
   routes = {
@@ -55,4 +55,19 @@ module "api_gateway" {
   api_mapping_key = "api"
 
   tags = var.tags
+}
+
+# Optional Route53 record for the custom domain
+resource "aws_route53_record" "api_gateway" {
+  count = var.create_domain_records && var.domain_name != "" && var.route53_zone_id != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = module.api_gateway.domain_name_target_domain_name
+    zone_id                = module.api_gateway.domain_name_hosted_zone_id
+    evaluate_target_health = false
+  }
 }

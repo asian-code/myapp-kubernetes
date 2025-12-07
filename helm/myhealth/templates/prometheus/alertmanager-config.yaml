@@ -1,0 +1,77 @@
+{{- if and .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app: alertmanager
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: '${ALERTMANAGER_SLACK_WEBHOOK_URL}'
+
+    # Route defines the routing structure for alerts
+    route:
+      receiver: 'default'
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      routes:
+        # Critical alerts - immediate notification
+        - match:
+            severity: critical
+          receiver: 'critical'
+          group_wait: 0s
+          repeat_interval: 5m
+          
+        # Warning alerts - standard routing
+        - match:
+            severity: warning
+          receiver: 'warning'
+          group_wait: 30s
+          repeat_interval: 4h
+
+    # Receivers define where to send notifications
+    receivers:
+    - name: 'default'
+      slack_configs:
+        - channel: '#alerts-general'
+          title: 'Alert: {{ .GroupLabels.alertname }}'
+          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}'
+
+    - name: 'critical'
+      slack_configs:
+        - channel: '#alerts-critical'
+          title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}\nRunbook: {{ .Annotations.runbook_url }}{{ end }}'
+      # Could add PagerDuty, Opsgenie, etc.
+      # pagerduty_configs:
+      #   - service_key: '${PAGERDUTY_SERVICE_KEY}'
+
+    - name: 'warning'
+      slack_configs:
+        - channel: '#alerts-warning'
+          title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}'
+
+    # Inhibition rules suppress alerts
+    inhibit_rules:
+      # Don't alert on pod crashes if the deployment is rolling out
+      - source_match:
+          alertname: 'PodCrashing'
+        target_match:
+          alertname: 'PodCrashing'
+        equal: ['namespace', 'deployment']
+
+      # Don't alert on latency if service is down
+      - source_match:
+          alertname: 'Prometheus*'
+        target_match:
+          severity: 'warning'
+        equal: ['instance']
+
+{{- end }}

@@ -1,0 +1,23 @@
+{{- if and .Values.dataProcessor.enabled .Values.dataProcessor.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: data-processor
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: data-processor
+  minReplicas: {{ .Values.dataProcessor.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dataProcessor.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.dataProcessor.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

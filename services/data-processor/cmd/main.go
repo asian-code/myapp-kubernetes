@@ -21,6 +21,11 @@ func main() {
 	log := logger.Init("data-processor")
 	cfg := config.Load()
 
+	// Validate required environment variables
+	if cfg.DBPassword == "" {
+		log.Fatal("DB_PASSWORD environment variable is required")
+	}
+
 	log.Info("Starting data-processor service")
 
 	// Connect to database
@@ -31,7 +36,8 @@ func main() {
 		User:     cfg.DBUser,
 		Password: cfg.DBPassword,
 		Database: cfg.DBName,
-		MaxConns: 25,
+		MaxConns: cfg.DBMaxConns,
+		SSLMode:  cfg.DBSSLMode,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Failed to connect to database")

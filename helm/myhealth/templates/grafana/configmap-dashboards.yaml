@@ -1,0 +1,19 @@
+{{- if and .Values.grafana.enabled .Values.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  oura-metrics.json: |
+    {{- if .Values.dashboards.ouraMetrics }}
+    {{- $.Files.Get "dashboards/oura-metrics.json" | nindent 4 }}
+    {{- end }}
+  service-health.json: |
+    {{- if .Values.dashboards.serviceHealth }}
+    {{- $.Files.Get "dashboards/service-health.json" | nindent 4 }}
+    {{- end }}
+{{- end }}

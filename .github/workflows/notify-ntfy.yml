@@ -1,0 +1,61 @@
+name: 'Notify ntfy'
+description: 'Send notification to ntfy.sh server'
+
+inputs:
+  ntfy_url:
+    description: 'Base URL of ntfy server (e.g., https://alert.eric-n.com)'
+    required: true
+  topic:
+    description: 'Topic name (e.g., cicd)'
+    required: true
+  title:
+    description: 'Notification title'
+    required: true
+  message:
+    description: 'Notification message'
+    required: true
+  priority:
+    description: 'Priority (1=min, 2=low, 3=default, 4=high, 5=urgent)'
+    required: false
+    default: '3'
+  tags:
+    description: 'Comma-separated tags'
+    required: false
+  actions:
+    description: 'Actions in JSON format'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Notification
+      shell: bash
+      env:
+        NTFY_URL: ${{ inputs.ntfy_url }}
+        TOPIC: ${{ inputs.topic }}
+        TITLE: ${{ inputs.title }}
+        MESSAGE: ${{ inputs.message }}
+        PRIORITY: ${{ inputs.priority }}
+        TAGS: ${{ inputs.tags }}
+        ACTIONS: ${{ inputs.actions }}
+      run: |
+        # Build curl command
+        CURL_CMD="curl -X POST"
+        CURL_CMD="$CURL_CMD -H 'Title: $TITLE'"
+        CURL_CMD="$CURL_CMD -H 'Priority: $PRIORITY'"
+        
+        # Add tags if provided
+        if [ -n "$TAGS" ]; then
+          CURL_CMD="$CURL_CMD -H 'Tags: $TAGS'"
+        fi
+        
+        # Add actions if provided
+        if [ -n "$ACTIONS" ]; then
+          CURL_CMD="$CURL_CMD -H 'Actions: $ACTIONS'"
+        fi
+        
+        CURL_CMD="$CURL_CMD -d '$MESSAGE'"
+        CURL_CMD="$CURL_CMD '$NTFY_URL/$TOPIC'"
+        
+        # Execute
+        eval "$CURL_CMD" || echo "Warning: Failed to send notification"

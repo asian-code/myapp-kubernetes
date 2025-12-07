@@ -19,17 +19,17 @@ output "cluster_certificate_authority_data" {
   description = "Base64 encoded certificate data required to communicate with the cluster"
 }
 
-output "oidc_provider_arn" {
-  value       = module.eks.oidc_provider_arn
-  description = "ARN of the OIDC Provider for IAM Roles for Service Accounts"
-}
-
-output "oidc_provider_url" {
-  value       = module.eks.oidc_provider
-  description = "URL of the OIDC Provider"
-}
-
 output "cluster_oidc_issuer_url" {
   value       = module.eks.cluster_oidc_issuer_url
   description = "Issuer URL for the EKS cluster OIDC provider"
+}
+
+output "auto_mode_node_role_arn" {
+  value       = module.eks.node_iam_role_arn
+  description = "ARN of the IAM role for Auto Mode nodes (created by the module)"
+}
+
+output "auto_mode_node_role_name" {
+  value       = module.eks.node_iam_role_name
+  description = "Name of the IAM role for Auto Mode nodes (created by the module)"
 }

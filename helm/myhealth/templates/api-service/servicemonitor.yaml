@@ -1,0 +1,20 @@
+{{- if and .Values.apiService.enabled .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.global.namespace }}
+  endpoints:
+    - port: metrics
+      interval: 30s
+{{- end }}

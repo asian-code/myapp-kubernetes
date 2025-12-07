@@ -1,0 +1,93 @@
+{{- if .Values.dataProcessor.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: processor
+spec:
+  replicas: {{ .Values.dataProcessor.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: processor
+  template:
+    metadata:
+      labels:
+        {{- include "myhealth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: processor
+    spec:
+      serviceAccountName: {{ default (include "myhealth.fullname" .) .Values.serviceAccount.name }}
+      containers:
+        - name: data-processor
+          image: "{{ .Values.imageRegistry }}/{{ .Values.dataProcessor.image.repository }}:{{ .Values.dataProcessor.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.dataProcessor.service.targetPort }}
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbHostField }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbUserField }}
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbPassField }}
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbNameField }}
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbHostField }}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbUserField }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbPassField }}
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProcessor.secret.name }}
+                  key: {{ .Values.dataProcessor.secret.dbNameField }}
+            - name: DB_SSLMODE
+              value: "{{ .Values.dataProcessor.env.dbSSLMode | default "require" }}"
+            - name: DB_MAX_CONNS
+              value: "{{ .Values.dataProcessor.env.dbMaxConns | default "10" }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.dataProcessor.env.logLevel }}"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.dataProcessor.resources | nindent 12 }}
+{{- end }}

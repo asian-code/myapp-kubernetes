@@ -1,0 +1,24 @@
+{{- if .Values.dataProcessor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-processor
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: processor
+spec:
+  type: {{ .Values.dataProcessor.service.type }}
+  ports:
+    - port: {{ .Values.dataProcessor.service.port }}
+      targetPort: {{ .Values.dataProcessor.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "myhealth.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: processor
+{{- end }}

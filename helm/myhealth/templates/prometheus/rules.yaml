@@ -1,0 +1,175 @@
+{{- if and .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: myhealth-alerts
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: myhealth.rules
+    interval: 30s
+    rules:
+    # HTTP Error Rate Alert
+    - alert: HighHTTPErrorRate
+      expr: |
+        sum(rate(http_requests_total{status=~"5.."}[5m])) by (service, endpoint)
+        /
+        sum(rate(http_requests_total[5m])) by (service, endpoint)
+        > 0.05
+      for: 5m
+      labels:
+        severity: warning
+        component: api
+      annotations:
+        summary: "High HTTP error rate detected"
+        description: "Service {{ $labels.service }} endpoint {{ $labels.endpoint }} has error rate > 5% for 5 minutes"
+        runbook_url: "https://internal.eric-n.com/runbooks/high-error-rate"
+
+    # HTTP Latency Alert
+    - alert: HighHTTPLatency
+      expr: |
+        histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, endpoint, le))
+        > 1.0
+      for: 5m
+      labels:
+        severity: warning
+        component: api
+      annotations:
+        summary: "High HTTP request latency detected"
+        description: "Service {{ $labels.service }} endpoint {{ $labels.endpoint }} p99 latency > 1s for 5 minutes"
+        runbook_url: "https://internal.eric-n.com/runbooks/high-latency"
+
+    # Database Query Latency Alert
+    - alert: HighDatabaseLatency
+      expr: |
+        histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (service, query_type, le))
+        > 1.0
+      for: 5m
+      labels:
+        severity: warning
+        component: database
+      annotations:
+        summary: "High database query latency detected"
+        description: "Service {{ $labels.service }} query type {{ $labels.query_type }} p95 latency > 1s for 5 minutes"
+        runbook_url: "https://internal.eric-n.com/runbooks/db-latency"
+
+    # Database Connection Errors Alert
+    - alert: DatabaseConnectionErrors
+      expr: rate(db_connection_errors_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: critical
+        component: database
+      annotations:
+        summary: "Database connection errors detected"
+        description: "Service {{ $labels.service }} experiencing database connection errors: {{ $value }} errors/sec"
+        runbook_url: "https://internal.eric-n.com/runbooks/db-connection-errors"
+
+    # Pod Crash Alert
+    - alert: PodCrashing
+      expr: |
+        increase(kube_pod_container_status_restarts_total[15m]) > 5
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+      annotations:
+        summary: "Pod restarting frequently"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in 15 minutes"
+        runbook_url: "https://internal.eric-n.com/runbooks/pod-crashing"
+
+    # High Memory Usage Alert
+    - alert: HighMemoryUsage
+      expr: |
+        (container_memory_usage_bytes{pod=~"api-service|data-processor|oura-collector"} 
+        / container_spec_memory_limit_bytes) > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+      annotations:
+        summary: "High memory usage detected"
+        description: "Pod {{ $labels.pod }} memory usage > 90% of limit ({{ $value | humanizePercentage }})"
+        runbook_url: "https://internal.eric-n.com/runbooks/high-memory"
+
+    # High CPU Usage Alert
+    - alert: HighCPUUsage
+      expr: |
+        (rate(container_cpu_usage_seconds_total{pod=~"api-service|data-processor|oura-collector"}[5m])
+        / container_spec_cpu_quota * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+      annotations:
+        summary: "High CPU usage detected"
+        description: "Pod {{ $labels.pod }} CPU usage > 80% ({{ $value | humanize }}%)"
+        runbook_url: "https://internal.eric-n.com/runbooks/high-cpu"
+
+    # Collector Failures Alert
+    - alert: OuraCollectorFailures
+      expr: |
+        rate(collector_errors_total[1h]) > 0.5
+      for: 10m
+      labels:
+        severity: critical
+        component: collector
+      annotations:
+        summary: "Oura collector experiencing high failure rate"
+        description: "Oura collector error rate > 50% for 1 hour: {{ $value | humanizePercentage }}"
+        runbook_url: "https://internal.eric-n.com/runbooks/collector-failures"
+
+    # Collector Not Running Alert
+    - alert: OuraCollectorNotRunning
+      expr: |
+        time() - collector_last_successful_run_timestamp_seconds > 86400
+      for: 1h
+      labels:
+        severity: critical
+        component: collector
+      annotations:
+        summary: "Oura collector has not run successfully in 24 hours"
+        description: "Last successful collector run was {{ $value | humanizeDuration }} ago"
+        runbook_url: "https://internal.eric-n.com/runbooks/collector-not-running"
+
+    # Prometheus Scrape Failure
+    - alert: PrometheusScrapeFailure
+      expr: up == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: monitoring
+      annotations:
+        summary: "Prometheus scrape failure"
+        description: "Target {{ $labels.instance }} has been unreachable for 5 minutes"
+        runbook_url: "https://internal.eric-n.com/runbooks/scrape-failure"
+
+    # Data Processing Lag Alert
+    - alert: DataProcessingLag
+      expr: |
+        time() - last_processed_timestamp_seconds > 3600
+      for: 5m
+      labels:
+        severity: warning
+        component: processor
+      annotations:
+        summary: "Data processing lag detected"
+        description: "Data processor has not processed new records in the last {{ $value | humanizeDuration }}"
+        runbook_url: "https://internal.eric-n.com/runbooks/processing-lag"
+
+    # HTTP Requests In Progress Spike
+    - alert: HTTPInProgressSpike
+      expr: |
+        http_requests_in_progress > 100
+      for: 2m
+      labels:
+        severity: warning
+        component: api
+      annotations:
+        summary: "Unusual spike in in-progress HTTP requests"
+        description: "Service {{ $labels.service }} has {{ $value }} in-progress requests (typical < 50)"
+        runbook_url: "https://internal.eric-n.com/runbooks/request-spike"
+{{- end }}

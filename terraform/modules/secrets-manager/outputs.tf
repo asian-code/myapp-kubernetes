@@ -1,11 +1,6 @@
-output "oura_api_key_arn" {
-  value       = aws_secretsmanager_secret.oura_api_key.arn
-  description = "ARN of the Oura API key secret"
-}
-
-output "db_master_password_arn" {
-  value       = aws_secretsmanager_secret.db_master_password.arn
-  description = "ARN of the generated RDS master password secret"
+output "oura_credentials_arn" {
+  value       = aws_secretsmanager_secret.oura_credentials.arn
+  description = "ARN of the Oura credentials secret"
 }
 
 output "db_credentials_arn" {
@@ -14,15 +9,15 @@ output "db_credentials_arn" {
 }
 
 output "db_credentials_username" {
-  value       = var.db_username != null ? var.db_username : random_string.db_username.result
+  value       = var.db_username
   sensitive   = true
-  description = "Database username (generated if not provided)"
+  description = "Database username"
 }
 
 output "db_credentials_password" {
-  value       = var.db_password != null ? var.db_password : random_password.db_master_password.result
+  value       = var.db_password
   sensitive   = true
-  description = "Database password (generated if not provided)"
+  description = "Database password"
 }
 
 output "jwt_secret_arn" {
@@ -31,7 +26,7 @@ output "jwt_secret_arn" {
 }
 
 output "jwt_secret_key" {
-  value       = var.jwt_secret_key != null ? var.jwt_secret_key : random_password.jwt_secret.result
+  value       = local.jwt_secret_value
   sensitive   = true
   description = "JWT secret key (generated if not provided)"
 }

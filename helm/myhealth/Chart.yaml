@@ -1,0 +1,30 @@
+apiVersion: v2
+name: myhealth
+description: Oura Ring metrics stack on EKS
+kubeVersion: ">=1.27.0"
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
+keywords:
+  - oura-ring
+  - metrics
+  - kubernetes
+  - prometheus
+  - grafana
+
+home: https://eric-n.com
+sources:
+  - https://github.com/asian-code/myapp-kubernetes
+
+dependencies:
+  - name: prometheus
+    version: "25.8.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+    alias: prometheus
+  - name: grafana
+    version: "7.0.0"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+    alias: grafana

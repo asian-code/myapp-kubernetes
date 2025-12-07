@@ -13,9 +13,9 @@ variable "private_subnets" {
   description = "List of private subnet IDs"
 }
 
-variable "eks_node_security_group_id" {
-  type        = string
-  description = "Security group ID of EKS nodes"
+variable "allowed_cidr_blocks" {
+  type        = list(string)
+  description = "CIDR blocks allowed to access RDS (typically VPC private subnets)"
 }
 
 variable "instance_class" {
@@ -33,7 +33,8 @@ variable "db_username" {
 variable "db_password" {
   type        = string
   sensitive   = true
-  description = "Database password"
+  default     = null
+  description = "Database password. If null, a random password will be generated."
 }
 
 variable "multi_az" {
@@ -52,6 +53,18 @@ variable "skip_final_snapshot" {
   type        = bool
   default     = true
   description = "Skip final snapshot when destroying database"
+}
+
+variable "final_snapshot_identifier" {
+  type        = string
+  default     = null
+  description = "Final snapshot identifier when destroying"
+}
+
+variable "deletion_protection" {
+  type        = bool
+  default     = false
+  description = "Enable deletion protection"
 }
 
 variable "tags" {

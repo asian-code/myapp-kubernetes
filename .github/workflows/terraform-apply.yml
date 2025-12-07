@@ -1,0 +1,72 @@
+name: 'Terraform Apply'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+jobs:
+  terraform-apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    defaults:
+      run:
+        working-directory: ./terraform
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.6.0
+    
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: us-east-1
+    
+    - name: Terraform Init
+      run: terraform init
+    
+    - name: Terraform Plan
+      run: terraform plan -no-color -out=tfplan
+      env:
+        TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
+    
+    - name: Terraform Apply
+      run: terraform apply -no-color -auto-approve tfplan
+    
+    - name: Send Notification - Success
+      uses: ./.github/workflows
+      with:
+        ntfy_url: ${{ secrets.NTFY_URL }}
+        topic: cicd
+        title: 'Terraform Apply - SUCCESS'
+        message: 'Terraform apply completed successfully for ${{ github.repository }}'
+        priority: '3'
+        tags: terraform,success
+      if: success()
+    
+    - name: Send Notification - Failure
+      uses: ./.github/workflows
+      with:
+        ntfy_url: ${{ secrets.NTFY_URL }}
+        topic: cicd
+        title: 'Terraform Apply - FAILED'
+        message: 'Terraform apply failed for ${{ github.repository }}. Check workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+        priority: '5'
+        tags: terraform,failed,error
+      if: failure()

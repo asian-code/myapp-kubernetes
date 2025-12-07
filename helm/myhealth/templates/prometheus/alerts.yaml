@@ -1,0 +1,29 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+data:
+  alerts.yml: |
+    groups:
+      - name: myhealth
+        rules:
+          - alert: HighErrorRate
+            expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+            for: 5m
+            annotations:
+              summary: "High error rate detected"
+          - alert: ServiceDown
+            expr: up{job="myhealth"} == 0
+            for: 2m
+            annotations:
+              summary: "Service is down"
+          - alert: DatabaseHighLatency
+            expr: db_query_duration_seconds > 1
+            for: 5m
+            annotations:
+              summary: "Database queries are slow"
+{{- end }}

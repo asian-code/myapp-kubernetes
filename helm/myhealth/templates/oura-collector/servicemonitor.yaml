@@ -1,0 +1,20 @@
+{{- if and .Values.ouraCollector.enabled .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: oura-collector
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: collector
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.global.namespace }}
+  endpoints:
+    - port: metrics
+      interval: 30s
+{{- end }}

@@ -18,6 +18,9 @@ backend-config.hcl
 .terraform.modules/
 .terraform.plugins/
 
+
+docs/*
+
 # Go files
 # Binaries for programs and plugins
 *.exe
@@ -34,6 +37,10 @@ dist/
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 coverage.txt
+coverage.html
+
+# Local config files (DO NOT COMMIT)
+services/config.local.yaml
 coverage.html
 
 # Dependency directories (remove the comment below to include it)

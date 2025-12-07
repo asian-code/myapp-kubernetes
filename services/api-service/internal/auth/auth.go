@@ -1,7 +1,10 @@
 package auth
 
 import (
+	"context"
 	"errors"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -41,3 +44,36 @@ func ValidateToken(tokenString, secret string) (*Claims, error) {
 
 	return nil, errors.New("invalid token")
 }
+
+// AuthMiddleware validates JWT tokens and injects user_id into context
+func AuthMiddleware(secret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Extract token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Missing authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			// Bearer token format: "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := parts[1]
+			claims, err := ValidateToken(tokenString, secret)
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Inject user_id into context
+			ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+

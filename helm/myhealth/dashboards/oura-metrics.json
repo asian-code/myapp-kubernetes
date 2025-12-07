@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Oura Metrics",
+    "panels": [
+      {
+        "title": "Sleep Score (Last 7 days)",
+        "targets": [
+          { "expr": "sleep_metrics_score" }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Activity Steps",
+        "targets": [
+          { "expr": "activity_metrics_steps" }
+        ],
+        "type": "stat"
+      },
+      {
+        "title": "Readiness Score",
+        "targets": [
+          { "expr": "readiness_metrics_score" }
+        ],
+        "type": "gauge"
+      }
+    ]
+  }
+}

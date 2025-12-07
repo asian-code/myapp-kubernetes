@@ -1,0 +1,122 @@
+name: 'Build Service (Conditional)'
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+      service_path:
+        required: true
+        type: string
+      changed:
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_ACCOUNT_ID:
+        required: true
+      NTFY_URL:
+        required: true
+
+env:
+  AWS_REGION: us-east-1
+  DOCKER_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  test:
+    name: 'Test ${{ inputs.service_name }}'
+    runs-on: ubuntu-latest
+    if: inputs.changed
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Go fmt
+      run: |
+        cd services
+        go fmt ./...
+      continue-on-error: true
+    
+    - name: Go vet
+      run: |
+        cd services
+        go vet ./...
+    
+    - name: Go test
+      run: |
+        cd services
+        go test -v -race -coverprofile=coverage.out ./...
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./services/coverage.out
+        fail_ci_if_error: false
+  
+  build-and-push:
+    name: 'Build & Push ${{ inputs.service_name }}'
+    runs-on: ubuntu-latest
+    needs: test
+    if: inputs.changed && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.DOCKER_REGISTRY }}
+    
+    - name: Build Docker image
+      run: |
+        cd services/${{ inputs.service_path }}
+        docker build \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/${{ inputs.service_name }}:${{ github.sha }} \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/${{ inputs.service_name }}:latest \
+          .
+    
+    - name: Push to ECR
+      run: |
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/${{ inputs.service_name }}:${{ github.sha }}
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/${{ inputs.service_name }}:latest
+    
+    - name: Send Notification - Success
+      shell: bash
+      run: |
+        curl -X POST \
+          -H "Title: Build ${{ inputs.service_name }} - SUCCESS" \
+          -H "Priority: 3" \
+          -H "Tags: build,success,${{ inputs.service_name }}" \
+          -d "Image pushed to ECR: ${{ env.DOCKER_REGISTRY }}/myhealth/${{ inputs.service_name }}:${{ github.sha }}" \
+          "${{ secrets.NTFY_URL }}/cicd"
+      if: success()
+    
+    - name: Send Notification - Failure
+      shell: bash
+      run: |
+        curl -X POST \
+          -H "Title: Build ${{ inputs.service_name }} - FAILED" \
+          -H "Priority: 4" \
+          -H "Tags: build,failed,${{ inputs.service_name }}" \
+          -d "Build failed. Check workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          "${{ secrets.NTFY_URL }}/cicd"
+      if: failure()

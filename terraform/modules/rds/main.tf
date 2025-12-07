@@ -17,7 +17,7 @@ module "db" {
 
   db_name  = "myhealth"
   username = var.db_username
-  password = var.db_password
+  password = coalesce(var.db_password, random_password.db_password.result)
   port     = 5432
 
   multi_az               = var.multi_az
@@ -28,15 +28,21 @@ module "db" {
   backup_window           = "03:00-04:00"
   backup_retention_period = var.backup_retention_days
 
-  skip_final_snapshot = var.skip_final_snapshot
+  skip_final_snapshot       = var.skip_final_snapshot
 
-  enabled_cloudwatch_logs_exports = ["postgresql"]
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
   create_cloudwatch_log_group     = true
 
-  deletion_protection   = false
+  deletion_protection   = var.deletion_protection
   copy_tags_to_snapshot = true
 
   tags = var.tags
+}
+
+# Generate a database password if one is not provided
+resource "random_password" "db_password" {
+  length  = 32
+  special = true
 }
 
 # DB Subnet Group (still created manually for flexibility)
@@ -56,11 +62,11 @@ resource "aws_security_group" "rds" {
   vpc_id      = var.vpc_id
 
   ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.eks_node_security_group_id]
-    description     = "PostgreSQL from EKS nodes"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "PostgreSQL from VPC (EKS Auto Mode pods)"
   }
 
   egress {

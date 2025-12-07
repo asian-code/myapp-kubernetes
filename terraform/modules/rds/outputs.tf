@@ -23,3 +23,9 @@ output "db_port" {
   value       = module.db.db_instance_port
   description = "Database port"
 }
+
+output "db_password" {
+  value       = coalesce(var.db_password, random_password.db_password.result)
+  sensitive   = true
+  description = "Database password used by the instance"
+}

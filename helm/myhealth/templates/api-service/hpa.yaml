@@ -1,0 +1,23 @@
+{{- if and .Values.apiService.enabled .Values.apiService.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-service
+  minReplicas: {{ .Values.apiService.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.apiService.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.apiService.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.apiService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.apiService.service.type }}
+  ports:
+    - port: {{ .Values.apiService.service.port }}
+      targetPort: {{ .Values.apiService.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "myhealth.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+{{- end }}
