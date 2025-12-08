@@ -1,0 +1,131 @@
+{{- if .Values.kubePrometheusStack.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: myhealth-alerts
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: myhealth.rules
+      interval: 30s
+      rules:
+        # SLO-based alerts
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5..",namespace="{{ .Values.global.namespace }}"}[5m]))
+              /
+              sum(rate(http_requests_total{namespace="{{ .Values.global.namespace }}"}[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High error rate detected (> 5%)"
+            description: "{{ "{{ $labels.service }}" }} has error rate of {{ "{{ $value | humanizePercentage }}" }}"
+
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{namespace="{{ .Values.global.namespace }}"}[5m])) by (le, service)
+            ) > 1.0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High latency detected (p95 > 1s)"
+            description: "{{ "{{ $labels.service }}" }} p95 latency is {{ "{{ $value | humanizeDuration }}" }}"
+
+        - alert: ServiceDown
+          expr: up{job=~".*myhealth.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Service {{ "{{ $labels.job }}" }} is down"
+            description: "{{ "{{ $labels.job }}" }} has been down for more than 2 minutes"
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace="{{ .Values.global.namespace }}"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ "{{ $labels.pod }}" }} is crash looping"
+            description: "Pod {{ "{{ $labels.pod }}" }} in namespace {{ "{{ $labels.namespace }}" }} has restarted {{ "{{ $value }}" }} times"
+
+        - alert: DatabaseHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(db_query_duration_seconds_bucket{namespace="{{ .Values.global.namespace }}"}[5m])) by (le, service)
+            ) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Database queries are slow (p95 > 500ms)"
+            description: "{{ "{{ $labels.service }}" }} database p95 latency is {{ "{{ $value | humanizeDuration }}" }}"
+
+        - alert: DatabaseConnectionPoolExhausted
+          expr: db_connections_open{namespace="{{ .Values.global.namespace }}"} > 8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Database connection pool nearly exhausted"
+            description: "{{ "{{ $labels.service }}" }} has {{ "{{ $value }}" }} open connections (max 10)"
+
+        - alert: OuraCollectorFailed
+          expr: |
+            (time() - collector_last_successful_run_timestamp_seconds{namespace="{{ .Values.global.namespace }}"}) > 900
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Oura Collector hasn't run successfully in 15 minutes"
+            description: "Last successful run was {{ "{{ $value | humanizeDuration }}" }} ago"
+
+        - alert: HighMemoryUsage
+          expr: |
+            (
+              container_memory_working_set_bytes{namespace="{{ .Values.global.namespace }}"}
+              /
+              container_spec_memory_limit_bytes{namespace="{{ .Values.global.namespace }}"}
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Container memory usage > 90%"
+            description: "Pod {{ "{{ $labels.pod }}" }} memory usage is {{ "{{ $value | humanizePercentage }}" }}"
+
+        - alert: HighCPUUsage
+          expr: |
+            (
+              rate(container_cpu_usage_seconds_total{namespace="{{ .Values.global.namespace }}"}[5m])
+              /
+              container_spec_cpu_quota{namespace="{{ .Values.global.namespace }}"}
+              * 100000
+            ) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Container CPU usage > 90%"
+            description: "Pod {{ "{{ $labels.pod }}" }} CPU usage is {{ "{{ $value | humanizePercentage }}" }}"
+
+        - alert: PodNotReady
+          expr: |
+            sum by (namespace, pod) (
+              kube_pod_status_phase{namespace="{{ .Values.global.namespace }}", phase!~"Running|Succeeded"}
+            ) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ "{{ $labels.pod }}" }} not ready"
+            description: "Pod has been in {{ "{{ $labels.phase }}" }} state for more than 5 minutes"
+{{- end }}

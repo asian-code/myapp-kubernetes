@@ -8,7 +8,7 @@ variable "vpc_id" {
   description = "VPC ID"
 }
 
-variable "private_subnets" {
+variable "db_subnets" {
   type        = list(string)
   description = "List of private subnet IDs"
 }
@@ -34,7 +34,7 @@ variable "db_password" {
   type        = string
   sensitive   = true
   default     = null
-  description = "Database password. If null, a random password will be generated."
+  description = "Database password"
 }
 
 variable "multi_az" {

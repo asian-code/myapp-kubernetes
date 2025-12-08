@@ -1,0 +1,76 @@
+{{- if .Values.rbac.create }}
+# Role for application pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "myhealth.fullname" . }}-app
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+rules:
+  # Allow reading secrets (managed by External Secrets Operator)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  # Allow reading configmaps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+# RoleBinding for application service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "myhealth.fullname" . }}-app
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "myhealth.fullname" . }}-app
+subjects:
+  - kind: ServiceAccount
+    name: {{ default (include "myhealth.fullname" .) .Values.serviceAccount.name }}
+    namespace: {{ .Values.global.namespace }}
+---
+# ClusterRole for metrics scraping (Prometheus)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "myhealth.fullname" . }}-metrics-reader
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - nonResourceURLs:
+      - /metrics
+    verbs: ["get"]
+---
+# ClusterRoleBinding for Prometheus
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "myhealth.fullname" . }}-metrics-reader
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "myhealth.fullname" . }}-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: {{ .Values.global.namespace }}
+{{- end }}

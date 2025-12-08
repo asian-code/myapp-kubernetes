@@ -21,12 +21,3 @@ output "rds_endpoint" {
 output "ecr_registry_id" {
   value = module.ecr.registry_id
 }
-
-output "tf_state_bucket" {
-  value = aws_s3_bucket.tf_state.bucket
-}
-
-output "api_gateway_endpoint" {
-  value       = try(module.api_gateway[0].api_endpoint, null)
-  description = "Invoke URL for API Gateway dev stage"
-}

@@ -1,0 +1,37 @@
+global:
+  domain: argocd.myhealth.local
+
+argo-cd:
+  global:
+    domain: argocd.myhealth.local
+  
+  server:
+    service:
+      type: LoadBalancer
+    
+    config:
+      repositories: |
+        - type: git
+          url: https://github.com/asian-code/myapp-kubernetes
+    
+    rbacConfig:
+      policy.default: role:readonly
+      policy.csv: |
+        p, role:org-admin, applications, *, */*, allow
+        p, role:org-admin, clusters, get, *, allow
+        p, role:org-admin, repositories, *, *, allow
+        p, role:org-admin, projects, *, *, allow
+        g, admin, role:admin
+
+  configs:
+    params:
+      server.insecure: true
+    
+  applicationSet:
+    enabled: true
+
+  notifications:
+    enabled: false
+
+  dex:
+    enabled: false

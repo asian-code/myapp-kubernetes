@@ -1,9 +1,3 @@
-variable "aws_profile" {
-  description = "AWS CLI profile to use"
-  type        = string
-  default     = "me"
-}
-
 variable "region" {
   description = "AWS region"
   type        = string
@@ -61,36 +55,6 @@ variable "rds_instance_class" {
   }
 }
 
-variable "acm_certificate_arn" {
-  description = "ACM certificate ARN for myhealth.eric-n.com"
-  type        = string
-  default     = ""
-}
-
-variable "api_gateway_domain_name" {
-  description = "Custom domain name for the API Gateway"
-  type        = string
-  default     = "myhealth.eric-n.com"
-}
-
-variable "api_gateway_create_domain_records" {
-  description = "Create Route53 records for the API Gateway custom domain"
-  type        = bool
-  default     = false
-}
-
-variable "api_gateway_route53_zone_id" {
-  description = "Route53 hosted zone ID for the API Gateway custom domain"
-  type        = string
-  default     = ""
-}
-
-variable "backend_url" {
-  description = "Backend service URL (Istio ingress)"
-  type        = string
-  default     = ""
-}
-
 variable "tags" {
   description = "Additional tags"
   type        = map(string)
@@ -109,4 +73,8 @@ variable "oura_client_secret" {
   description = "Oura OAuth Client Secret"
   type        = string
   sensitive   = true
+}
+variable "cluster_endpoint_public_access_cidrs" {
+  type        = list(string)
+  description = "List of CIDR blocks allowed to access the cluster endpoint publicly"
 }

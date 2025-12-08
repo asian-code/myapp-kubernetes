@@ -18,13 +18,36 @@ sources:
   - https://github.com/asian-code/myapp-kubernetes
 
 dependencies:
-  - name: prometheus
-    version: "25.8.0"
+  - name: kube-prometheus-stack
+    version: "65.1.1"
     repository: "https://prometheus-community.github.io/helm-charts"
-    condition: prometheus.enabled
-    alias: prometheus
-  - name: grafana
-    version: "7.0.0"
+    condition: kubePrometheusStack.enabled
+    alias: kubePrometheusStack
+  - name: loki
+    version: "6.6.4"
     repository: "https://grafana.github.io/helm-charts"
-    condition: grafana.enabled
-    alias: grafana
+    condition: loki.enabled
+  - name: promtail
+    version: "6.15.5"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: promtail.enabled
+  - name: opentelemetry-collector
+    version: "0.97.1"
+    repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    condition: opentelemetryCollector.enabled
+  - name: velero
+    version: "7.2.1"
+    repository: "https://vmware-tanzu.github.io/helm-charts"
+    condition: velero.enabled
+  - name: gatekeeper
+    version: "3.17.1"
+    repository: "https://open-policy-agent.github.io/gatekeeper/charts"
+    condition: gatekeeper.enabled
+  - name: aws-load-balancer-controller
+    version: "1.8.1"
+    repository: "https://aws.github.io/eks-charts"
+    condition: awsLoadBalancerController.enabled
+  - name: cilium
+    version: "1.16.3"
+    repository: "https://helm.cilium.io/"
+    condition: cilium.enabled

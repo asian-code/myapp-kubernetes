@@ -1,46 +1,49 @@
 module "eks" {
+  # Provider module
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.10"
 
+  # Cluster identity
   name               = var.cluster_name
   kubernetes_version = var.cluster_version
 
-  vpc_id                   = var.vpc_id
-  subnet_ids               = var.private_subnets
-  control_plane_subnet_ids = var.private_subnets
+  # Networking
+  vpc_id     = var.vpc_id
+  subnet_ids = var.private_subnets
+  # control_plane_subnet_ids = var.private_subnets
 
-  endpoint_public_access  = true
-  endpoint_private_access = true
-
-  # Enable cluster creator admin permissions for Auto Mode
+  # Access / IAM
+  # Auto Mode requires creation of some IAM resources for the controller/operator
+  create_auto_mode_iam_resources = true
+  # Allow admin permissions to the cluster creator when using Auto Mode
   enable_cluster_creator_admin_permissions = true
 
-  # Enable API and ConfigMap authentication mode for Auto Mode
-  authentication_mode = "API_AND_CONFIG_MAP"
+  # API access restrictions
+  endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
 
-  # EKS Auto Mode - Compute Configuration
-  # The module automatically creates the required IAM role for Auto Mode nodes
-  cluster_compute_config = {
+  # Compute (EKS Auto Mode)
+  compute_config = {
     enabled    = true
-    node_pools = ["general-purpose", "system"]
+    node_pools = ["general-purpose"]
   }
 
-  # Auto Mode manages add-ons automatically, but we can specify versions if needed
-  cluster_addons = {
-    # Auto Mode will manage these automatically
+  # Managed cluster add-ons.
+  addons = {
     coredns = {
       most_recent = true
     }
+
     kube-proxy = {
       most_recent = true
     }
-    vpc-cni = {
-      most_recent = true
-    }
-    eks-pod-identity-agent = {
-      most_recent = true
+
+    # AWS EBS CSI Driver needs an IAM role provided by this module (IRSA)
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = aws_iam_role.ebs_csi_driver.arn
     }
   }
 
+  # Metadata tags applied to created resources
   tags = var.tags
 }

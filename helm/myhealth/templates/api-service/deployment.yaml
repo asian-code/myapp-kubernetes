@@ -20,6 +20,14 @@ spec:
         app.kubernetes.io/component: api
     spec:
       serviceAccountName: {{ default (include "myhealth.fullname" .) .Values.serviceAccount.name }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "myhealth.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
       containers:
         - name: api-service
           image: "{{ .Values.imageRegistry }}/{{ .Values.apiService.image.repository }}:{{ .Values.apiService.image.tag }}"

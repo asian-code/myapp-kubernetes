@@ -1,9 +1,8 @@
 # myHealth - Oura Ring Health Monitoring Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.27+-326CE5?logo=kubernetes)](https://kubernetes.io/)
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-7B42BC?logo=terraform)](https://www.terraform.io/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.33+-326CE5?logo=kubernetes)](https://kubernetes.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.14+-7B42BC?logo=terraform)](https://www.terraform.io/)
 
 A production-grade, cloud-native microservices platform for collecting, processing, and visualizing health metrics from the Oura Ring API. Built with Kubernetes on AWS EKS, this system provides comprehensive monitoring of sleep, activity, and readiness data with enterprise-level observability.
 
@@ -32,47 +31,8 @@ myHealth is a personal health monitoring solution that integrates with the Oura 
 ## 🏗️ Architecture
 
 ### High-Level Architecture
+![High-Level Architecture](diagram\diagram.png)
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           AWS Cloud (us-east-1)                      │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────┐      │
-│  │              EKS Cluster (myhealth)                       │      │
-│  │                                                            │      │
-│  │  ┌──────────────────────────────────────────────────┐    │      │
-│  │  │        Istio Service Mesh                         │    │      │
-│  │  │                                                    │    │      │
-│  │  │  ┌──────────────┐  ┌──────────────┐  ┌─────────┐│    │      │
-│  │  │  │ oura-        │  │ data-        │  │ api-    ││    │      │
-│  │  │  │ collector    │─▶│ processor    │─▶│ service ││    │      │
-│  │  │  │ (CronJob)    │  │              │  │         ││    │      │
-│  │  │  └──────────────┘  └──────────────┘  └─────────┘│    │      │
-│  │  │                                                    │    │      │
-│  │  │  ┌──────────────┐  ┌──────────────┐              │    │      │
-│  │  │  │ Prometheus   │  │ Grafana      │              │    │      │
-│  │  │  └──────────────┘  └──────────────┘              │    │      │
-│  │  └──────────────────────────────────────────────────┘    │      │
-│  │                                                            │      │
-│  │  ┌──────────────┐    ┌────────────────────────┐          │      │
-│  │  │ External     │    │ RDS PostgreSQL 15.4    │          │      │
-│  │  │ Secrets      │    │ (Multi-AZ, t3.small)   │          │      │
-│  │  │ Operator     │    └────────────────────────┘          │      │
-│  │  └──────────────┘                                         │      │
-│  └────────────────────────────────────────────────────────────┘      │
-│                                                                      │
-│  ┌────────────────────┐  ┌────────────────────┐                    │
-│  │ AWS Secrets Manager│  │  ECR (Container    │                    │
-│  │                    │  │  Registry)         │                    │
-│  └────────────────────┘  └────────────────────┘                    │
-└─────────────────────────────────────────────────────────────────────┘
-
-External:
-┌──────────────┐         ┌──────────────┐
-│ Oura Ring API│         │ GitHub       │
-│ (OAuth2)     │         │ Actions CI/CD│
-└──────────────┘         └──────────────┘
-```
 
 ### Microservices
 
@@ -112,7 +72,7 @@ External:
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | **AWS EKS** | 1.33+ | Kubernetes orchestration |
-| **Terraform** | 1.6+ | Infrastructure as Code |
+| **Terraform** | 1.14+ | Infrastructure as Code |
 | **Helm** | 3.13+ | Kubernetes package management |
 | **Istio** | 1.23+ | Service mesh (traffic, security, observability) |
 | **AWS RDS** | PostgreSQL 15.4 | Relational database (Multi-AZ) |
@@ -122,7 +82,7 @@ External:
 ### Application Stack
 | Technology | Purpose |
 |-----------|---------|
-| **Go** 1.21+ | Microservices development |
+| **Go** 1.25+ | Microservices development |
 | **gorilla/mux** | HTTP routing |
 | **pgx/v5** | PostgreSQL driver with connection pooling |
 | **golang-jwt/jwt/v5** | JWT token generation and validation |
@@ -251,204 +211,6 @@ myapp-kubernetes/
 
 ---
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **AWS Account** with appropriate permissions
-- **AWS CLI** configured with profile
-- **Terraform** >= 1.6
-- **kubectl** >= 1.27
-- **Helm** >= 3.13
-- **Go** >= 1.21 (for local development)
-- **Docker** (for building images)
-- **Oura Ring Account** with Developer API access
-
-### Step 1: Configure Oura API OAuth2
-
-1. Visit [Oura Cloud Developers](https://cloud.ouraring.com/oauth/applications)
-2. Create a new OAuth2 application
-3. Set redirect URI to: `https://myhealth.eric-n.com/api/callback`
-4. Save the Client ID and Client Secret
-
-### Step 2: Update Terraform Variables
-
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-```
-
-Edit `terraform.tfvars`:
-
-```hcl
-aws_profile         = "your-profile"
-region              = "us-east-1"
-cluster_name        = "myhealth"
-environment         = "dev"  # or "staging", "prod"
-
-# Oura API Credentials
-oura_client_id      = "your-oura-client-id"
-oura_client_secret  = "your-oura-client-secret"
-
-# Database Configuration
-db_instance_class   = "db.t3.small"
-db_allocated_storage = 20
-
-# Enable Multi-AZ and backups for production
-multi_az            = true  # Set to true for prod
-backup_retention_period = 30  # 30 days for prod, 7 for dev
-```
-
-### Step 3: Deploy Infrastructure
-
-```bash
-# Initialize Terraform
-terraform init
-
-# Review planned changes
-terraform plan
-
-# Deploy infrastructure
-terraform apply
-
-# Save outputs
-terraform output > ../infrastructure-outputs.txt
-```
-
-This creates:
-- VPC with public/private subnets
-- EKS cluster with node groups
-- RDS PostgreSQL (Multi-AZ if production)
-- ECR repositories
-- AWS Secrets Manager secrets
-- IAM roles and policies
-
-### Step 4: Run Database Migrations
-
-```bash
-# Install golang-migrate
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-# Get database connection details
-DB_HOST=$(terraform output -raw rds_endpoint)
-DB_PASS=$(terraform output -raw rds_password)
-
-# Run migrations
-cd ../services/data-processor
-migrate -path ./migrations \
-  -database "postgres://myhealth_user:${DB_PASS}@${DB_HOST}:5432/myhealth?sslmode=require" \
-  up
-```
-
-### Step 5: Configure Kubernetes Access
-
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --name myhealth --region us-east-1 --profile your-profile
-
-# Verify connection
-kubectl get nodes
-kubectl get namespaces
-```
-
-### Step 6: Install External Secrets Operator
-
-```bash
-# Add Helm repo
-helm repo add external-secrets https://charts.external-secrets.io
-helm repo update
-
-# Install operator
-helm install external-secrets \
-  external-secrets/external-secrets \
-  -n external-secrets-system \
-  --create-namespace
-```
-
-### Step 7: Deploy Application with Helm
-
-```bash
-cd ../../helm/myhealth
-
-# Update values.yaml with your user ID (after registration)
-# For first deployment, leave userId empty
-
-# Install/upgrade
-helm upgrade --install myhealth . \
-  --namespace myhealth \
-  --create-namespace \
-  --values values.yaml \
-  --wait
-```
-
-### Step 8: Create User Account
-
-```bash
-# Port forward to api-service
-kubectl port-forward -n myhealth svc/api-service 8080:80
-
-# Register account
-curl -X POST http://localhost:8080/api/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "your-username",
-    "email": "your-email@example.com",
-    "password": "your-secure-password"
-  }'
-
-# Save the returned user_id for next step
-```
-
-### Step 9: Complete OAuth2 Flow
-
-```bash
-# Login to get JWT token
-TOKEN=$(curl -X POST http://localhost:8080/api/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "your-username",
-    "password": "your-secure-password"
-  }' | jq -r '.token')
-
-# Initiate OAuth2 authorization
-# This will return an authorization URL
-curl http://localhost:8080/api/oauth/authorize \
-  -H "Authorization: Bearer $TOKEN"
-
-# Visit the URL in your browser, authorize the app
-# You'll be redirected back to the callback endpoint
-# The tokens will be automatically saved to the database
-```
-
-### Step 10: Update Helm Values with User ID
-
-```bash
-# Edit values.yaml and set:
-# ouraCollector:
-#   env:
-#     userId: "your-user-id-from-registration"
-
-# Upgrade deployment
-helm upgrade myhealth . \
-  --namespace myhealth \
-  --values values.yaml \
-  --wait
-```
-
-### Step 11: Access Grafana
-
-```bash
-# Get Grafana password
-kubectl get secret -n myhealth grafana-admin-password -o jsonpath="{.data.admin-password}" | base64 --decode
-
-# Port forward Grafana
-kubectl port-forward -n myhealth svc/grafana 3000:80
-
-# Open http://localhost:3000
-# Login with admin / <password-from-above>
-```
-
----
 
 ## 📊 API Endpoints
 

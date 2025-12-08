@@ -1,0 +1,188 @@
+{{- if .Values.networkPolicies.enabled }}
+# Default deny all ingress and egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow DNS for all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# API Service Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-service-policy
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from Istio ingress gateway
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+          podSelector:
+            matchLabels:
+              app: istio-ingressgateway
+      ports:
+        - protocol: TCP
+          port: {{ .Values.apiService.service.targetPort }}
+    # Allow Prometheus scraping
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.global.namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    # Allow to data-processor
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "myhealth.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: processor
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataProcessor.service.targetPort }}
+    # Allow to RDS database
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow to internet for Oura API
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# Data Processor Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-processor-policy
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: processor
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: processor
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from api-service and oura-collector
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "myhealth.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataProcessor.service.targetPort }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "myhealth.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: collector
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataProcessor.service.targetPort }}
+    # Allow Prometheus scraping
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.global.namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    # Allow to RDS database
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Oura Collector Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oura-collector-policy
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myhealth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: collector
+  policyTypes:
+    - Egress
+  egress:
+    # Allow to data-processor
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "myhealth.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: processor
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataProcessor.service.targetPort }}
+    # Allow to internet for Oura API
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+{{- end }}

@@ -23,3 +23,8 @@ variable "tags" {
   type        = map(string)
   description = "Tags to apply to all resources"
 }
+
+variable "cluster_endpoint_public_access_cidrs" {
+  type        = list(string)
+  description = "List of CIDR blocks allowed to access the cluster endpoint publicly (only me)"
+}

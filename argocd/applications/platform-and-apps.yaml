@@ -1,0 +1,70 @@
+# Platform Applications - Observability, Security, Networking
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/asian-code/myapp-kubernetes
+    targetRevision: HEAD
+    path: helm/myhealth
+    helm:
+      valueFiles:
+        - values-platform.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: myhealth
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+---
+# Application Stack - Microservices
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myhealth-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/asian-code/myapp-kubernetes
+    targetRevision: HEAD
+    path: helm/myhealth
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: myhealth
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
