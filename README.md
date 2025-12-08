@@ -31,7 +31,7 @@ myHealth is a personal health monitoring solution that integrates with the Oura 
 ## 🏗️ Architecture
 
 ### High-Level Architecture
-![High-Level Architecture](diagram\diagram.png)
+![High-Level Architecture](diagram/diagram.png)
 
 
 ### Microservices
