@@ -45,7 +45,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Helm
-      uses: azure/setup-helm@v3
+      uses: azure/setup-helm@v4
       with:
         version: 'v3.13.0'
     
@@ -125,7 +125,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Helm
-      uses: azure/setup-helm@v3
+      uses: azure/setup-helm@v4
       with:
         version: 'v3.13.0'
     
@@ -210,7 +210,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Helm
-      uses: azure/setup-helm@v3
+      uses: azure/setup-helm@v4
       with:
         version: 'v3.13.0'
     
@@ -247,20 +247,12 @@ jobs:
           --namespace myhealth-prod \
           --create-namespace \
           --values ${{ env.HELM_CHART_PATH }}/values.yaml \
+          --values ${{ env.HELM_CHART_PATH }}/values-prod.yaml \
           --set global.environment=prod \
           --set imageRegistry=${{ env.DOCKER_REGISTRY }} \
           --set ouraCollector.image.tag=${{ needs.prepare.outputs.image_tag }} \
           --set dataProcessor.image.tag=${{ needs.prepare.outputs.image_tag }} \
           --set apiService.image.tag=${{ needs.prepare.outputs.image_tag }} \
-          --set-string ouraCollector.env.logLevel=warning \
-          --set-string dataProcessor.env.logLevel=warning \
-          --set-string apiService.env.logLevel=warning \
-          --set ouraCollector.replicaCount=2 \
-          --set dataProcessor.replicaCount=3 \
-          --set apiService.replicaCount=5 \
-          --set ouraCollector.resources.limits.memory=512Mi \
-          --set dataProcessor.resources.limits.memory=1Gi \
-          --set apiService.resources.limits.memory=1Gi \
           --wait --timeout 10m
     
     - name: Verify Deployment (Production)

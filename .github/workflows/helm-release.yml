@@ -60,8 +60,9 @@ jobs:
           NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "New version: $NEW_VERSION"
           
-          # Update Chart.yaml
-          sed -i "s/^version: .*/version: $NEW_VERSION/" Chart.yaml
+          # Update Chart.yaml (portable approach for both Linux and macOS)
+          awk -v new_version="$NEW_VERSION" '/^version:/ {$2=new_version} {print}' Chart.yaml > Chart.yaml.tmp
+          mv Chart.yaml.tmp Chart.yaml
           
           # Commit the version bump
           git add Chart.yaml

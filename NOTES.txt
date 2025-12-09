@@ -2,7 +2,10 @@
 - ensure multi az RDS with 1 master and others standby
 [!] review go services and test api with postman
 ---
+- setup OIDC with aws and github actions
 - review helm charts deployment with pipeline
 - auto deploy ArgoCD
 - review istio configuration for services
 - setup monitoring and logging with prometheus/grafana
+
+

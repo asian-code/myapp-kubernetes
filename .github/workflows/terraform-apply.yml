@@ -50,7 +50,7 @@ jobs:
       run: terraform apply -no-color -auto-approve tfplan
     
     - name: Send Notification - Success
-      uses: ./.github/workflows
+      uses: ./.github/actions/notify-ntfy
       with:
         ntfy_url: ${{ secrets.NTFY_URL }}
         topic: cicd
@@ -61,7 +61,7 @@ jobs:
       if: success()
     
     - name: Send Notification - Failure
-      uses: ./.github/workflows
+      uses: ./.github/actions/notify-ntfy
       with:
         ntfy_url: ${{ secrets.NTFY_URL }}
         topic: cicd

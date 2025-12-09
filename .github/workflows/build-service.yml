@@ -44,18 +44,18 @@ jobs:
       run: |
         cd services
         go work sync
-        go fmt ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
+        go fmt ./${{ inputs.service_path }}/... ./shared/...
       continue-on-error: true
     
     - name: Go vet
       run: |
         cd services
-        go vet ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
+        go vet ./${{ inputs.service_path }}/... ./shared/...
     
     - name: Go test
       run: |
         cd services
-        go test -v -race -coverprofile=coverage.out ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
+        go test -v -race -coverprofile=coverage.out ./${{ inputs.service_path }}/... ./shared/...
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
