@@ -297,10 +297,7 @@ jobs:
           -H "Title: Production Deployment - FAILED" \
           -H "Priority: 5" \
           -H "Tags: deployment,production,failed,error" \
-          -d "Production deployment FAILED! Commit: ${{ github.sha }} Repository: ${{ github.repository }} Branch: ${{ github.ref }} Actor: ${{ github.actor }}" \
+          -d "Production deployment FAILED! Commit: ${{ github.sha }} Repository: ${{ github.repository }} Branch: ${{ github.ref }} Actor: ${{ github.actor }} Check workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
           "${{ secrets.NTFY_URL }}/cicd"
       if: failure()
-Actor: ${{ github.actor }}
-Check workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-          "${{ secrets.NTFY_URL }}/cicd"
-      if: failure()
+
