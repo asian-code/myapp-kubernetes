@@ -57,8 +57,8 @@ type ReadinessData struct {
 func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
-		h.metrics.HTTPRequestDuration.Observe(time.Since(start).Seconds())
-		h.metrics.HTTPRequestsTotal.Inc()
+		h.metrics.HTTPRequestDuration.WithLabelValues(r.Method, "/ingest").Observe(time.Since(start).Seconds())
+		h.metrics.HTTPRequestsTotal.WithLabelValues(r.Method, "/ingest", "200").Inc()
 	}()
 
 	var req IngestRequest

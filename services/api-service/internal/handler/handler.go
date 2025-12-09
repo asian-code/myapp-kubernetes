@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -47,8 +48,8 @@ type WeeklySummary struct {
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
-		h.metrics.HTTPRequestDuration.Observe(time.Since(start).Seconds())
-		h.metrics.HTTPRequestsTotal.Inc()
+		h.metrics.HTTPRequestDuration.WithLabelValues(r.Method, "/dashboard").Observe(time.Since(start).Seconds())
+		h.metrics.HTTPRequestsTotal.WithLabelValues(r.Method, "/dashboard", "200").Inc()
 	}()
 
 	ctx := r.Context()
@@ -115,8 +116,9 @@ func (h *Handler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getMetrics(w http.ResponseWriter, r *http.Request, metricType string) {
 	start := time.Now()
 	defer func() {
-		h.metrics.HTTPRequestDuration.Observe(time.Since(start).Seconds())
-		h.metrics.HTTPRequestsTotal.Inc()
+		endpoint := fmt.Sprintf("/metrics/%s", metricType)
+		h.metrics.HTTPRequestDuration.WithLabelValues(r.Method, endpoint).Observe(time.Since(start).Seconds())
+		h.metrics.HTTPRequestsTotal.WithLabelValues(r.Method, endpoint, "200").Inc()
 	}()
 
 	// Parse date range from query params (default: last 30 days)

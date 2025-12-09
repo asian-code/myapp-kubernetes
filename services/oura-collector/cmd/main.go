@@ -144,7 +144,7 @@ func main() {
 	m.DataPointsCollected.Add(float64(dataPointsCollected))
 
 	if !hasErrors {
-		m.LastSuccessfulRunTime.SetToCurrentTime()
+		m.LastSuccessfulRunTime.Set(float64(time.Now().Unix()))
 		log.WithField("duration_seconds", duration).WithField("data_points", dataPointsCollected).Info("oura-collector completed successfully")
 	} else {
 		log.WithField("duration_seconds", duration).WithField("data_points", dataPointsCollected).Warn("oura-collector completed with errors")
