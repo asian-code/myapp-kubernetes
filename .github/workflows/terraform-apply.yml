@@ -55,6 +55,9 @@ jobs:
         TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
         TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
         TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
+        TF_VAR_oura_client_id: ${{ secrets.OURA_CLIENT_ID }}
+        TF_VAR_oura_client_secret: ${{ secrets.OURA_CLIENT_SECRET }}
+        TF_VAR_cluster_endpoint_public_access_cidrs: '["${{ secrets.MY_IP_CIDR }}"]'
     
     - name: Terraform Apply
       run: terraform apply -no-color -auto-approve tfplan
