@@ -27,7 +27,7 @@ module "db" {
 
   multi_az               = var.multi_az
   db_subnet_group_name   = aws_db_subnet_group.myhealth.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
+  vpc_security_group_ids = [var.security_group_id]
 
   maintenance_window      = "sun:04:00-sun:05:00"
   backup_window           = "03:00-04:00"

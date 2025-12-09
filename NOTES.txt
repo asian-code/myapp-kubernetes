@@ -1,1 +1,8 @@
-need to create security groups for each layer
+- create security groups for each layer
+- ensure multi az RDS with 1 master and others standby
+[!] review go services and test api with postman
+---
+- review helm charts deployment with pipeline
+- auto deploy ArgoCD
+- review istio configuration for services
+- setup monitoring and logging with prometheus/grafana

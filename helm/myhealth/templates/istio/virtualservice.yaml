@@ -16,11 +16,10 @@ spec:
     - "{{ . }}"
     {{- end }}
   http:
+    # API Service routes - /api prefix
     - match:
-        {{- range .Values.istio.virtualServices.apiService.paths }}
         - uri:
-            prefix: "{{ . }}"
-        {{- end }}
+            prefix: "/api"
       route:
         - destination:
             host: api-service
@@ -31,4 +30,25 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 10s
+    
+    # Helm chart repository - /charts prefix
+    # This will be served by GitHub Pages, redirect externally
+    - match:
+        - uri:
+            prefix: "/charts"
+      redirect:
+        uri: "https://asian-code.github.io/myapp-kubernetes/charts"
+        authority: "asian-code.github.io"
+    
+    # Frontend - serve everything else (assumes you'll deploy frontend separately)
+    # Adjust this if you have a frontend service in the cluster
+    - match:
+        - uri:
+            prefix: "/"
+      route:
+        - destination:
+            host: frontend-service  # You'll need to create this
+            port:
+              number: 80
+          weight: 100
 {{- end }}

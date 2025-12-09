@@ -19,6 +19,11 @@ variable "private_subnets" {
   description = "List of private subnet IDs for the cluster"
 }
 
+variable "cluster_security_group_id" {
+  type        = string
+  description = "Security group ID for the EKS cluster"
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to all resources"

@@ -18,7 +18,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   service_name        = "com.amazonaws.${var.region}.ecr.api"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {
@@ -32,7 +32,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   service_name        = "com.amazonaws.${var.region}.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {
@@ -46,7 +46,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   service_name        = "com.amazonaws.${var.region}.secretsmanager"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {
@@ -60,7 +60,7 @@ resource "aws_vpc_endpoint" "logs" {
   service_name        = "com.amazonaws.${var.region}.logs"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {
@@ -74,7 +74,7 @@ resource "aws_vpc_endpoint" "sts" {
   service_name        = "com.amazonaws.${var.region}.sts"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {
@@ -88,7 +88,7 @@ resource "aws_vpc_endpoint" "ec2" {
   service_name        = "com.amazonaws.${var.region}.ec2"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [var.security_group_id]
   private_dns_enabled = true
 
   tags = merge(var.tags, {

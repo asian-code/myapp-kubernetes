@@ -26,6 +26,25 @@ module "networking" {
   log_retention_in_days = var.log_retention_in_days
 }
 
+# Security Groups module (centralized)
+module "security_groups" {
+  source = "./modules/security-groups"
+
+  cluster_name = var.cluster_name
+  vpc_id       = module.networking.vpc_id
+  vpc_cidr     = var.vpc_cidr
+  tags         = local.tags
+}
+
+# Reuse centrally managed security groups across all tiers
+locals {
+  security_group_ids = {
+    eks_cluster   = module.security_groups.eks_cluster_security_group_id
+    rds           = module.security_groups.rds_security_group_id
+    vpc_endpoints = module.security_groups.vpc_endpoints_security_group_id
+  }
+}
+
 # VPC Endpoints module
 module "vpc_endpoints" {
   source = "./modules/vpc-endpoints"
@@ -36,6 +55,7 @@ module "vpc_endpoints" {
   private_subnets         = module.networking.private_subnets
   private_route_table_ids = module.networking.private_route_table_ids
   region                  = var.region
+  security_group_id       = local.security_group_ids.vpc_endpoints
   tags                    = local.tags
 }
 
@@ -47,6 +67,7 @@ module "eks" {
   cluster_version                      = var.cluster_version
   vpc_id                               = module.networking.vpc_id
   private_subnets                      = module.networking.private_subnets
+  cluster_security_group_id            = local.security_group_ids.eks_cluster
   tags                                 = local.tags
   cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
 }
@@ -58,7 +79,7 @@ module "rds" {
   cluster_name              = var.cluster_name
   vpc_id                    = module.networking.vpc_id
   db_subnets                = module.networking.database_subnets
-  allowed_cidr_blocks       = [var.vpc_cidr]
+  security_group_id         = local.security_group_ids.rds
   instance_class            = var.rds_instance_class
   db_username               = "myhealth_user"
   multi_az                  = var.environment == "prod" ? true : false

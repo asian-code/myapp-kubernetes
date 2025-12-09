@@ -24,6 +24,6 @@ output "logs_endpoint_id" {
 }
 
 output "vpc_endpoints_security_group_id" {
-  value       = aws_security_group.vpc_endpoints.id
-  description = "Security group ID for VPC endpoints"
+  value       = var.security_group_id
+  description = "Security group ID provided to VPC endpoints"
 }

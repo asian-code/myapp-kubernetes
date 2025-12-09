@@ -12,6 +12,11 @@ module "eks" {
   subnet_ids = var.private_subnets
   # control_plane_subnet_ids = var.private_subnets
 
+  # Security groups - use only the centrally managed cluster SG
+  create_security_group = false
+  security_group_id     = var.cluster_security_group_id
+  create_node_security_group    = false
+
   # Access / IAM
   # Auto Mode requires creation of some IAM resources for the controller/operator
   create_auto_mode_iam_resources = true

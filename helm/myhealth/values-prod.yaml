@@ -1,0 +1,125 @@
+# Production Environment Overrides
+global:
+  environment: prod
+  namespace: myhealth
+  domain: myhealth.eric-n.com
+  tlsSecretName: myhealth-tls
+
+# External Secrets - point to prod secrets in AWS Secrets Manager
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  aws:
+    secrets:
+      dbCredentials: "myhealth/db-credentials"
+      jwtSecret: "myhealth/jwt-secret"
+      ouraCredentials: "myhealth/oura-credentials"
+
+# Production images - use semantic versioning tags
+imageRegistry: "211125604618.dkr.ecr.us-east-1.amazonaws.com"
+imagePullPolicy: IfNotPresent
+
+# Oura Collector
+ouraCollector:
+  enabled: true
+  image:
+    tag: "1.0.0"  # Use explicit version in prod
+  schedule: "0 1 * * *"  # Run daily at 1 AM UTC
+  env:
+    logLevel: "info"
+    dbSSLMode: "require"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Data Processor - full HA
+dataProcessor:
+  enabled: true
+  image:
+    tag: "1.0.0"
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  env:
+    logLevel: "info"
+    dbSSLMode: "require"
+    dbMaxConns: "10"
+
+# API Service - full HA with higher resources
+apiService:
+  enabled: true
+  image:
+    tag: "1.0.0"
+  replicaCount: 5
+  resources:
+    requests:
+      cpu: 300m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+  env:
+    logLevel: "warn"  # Less verbose in prod
+    dbSSLMode: "require"
+    dbMaxConns: "10"
+  oauth:
+    redirectUri: "https://myhealth.eric-n.com/api/callback"
+
+# Istio Configuration
+istio:
+  enabled: true
+  gateway:
+    hosts:
+      - myhealth.eric-n.com
+  virtualServices:
+    apiService:
+      hosts:
+        - myhealth.eric-n.com
+
+# Platform components - production configuration
+prometheus:
+  enabled: true
+  server:
+    retention: "30d"  # Longer retention in prod
+    persistentVolume:
+      enabled: true
+      size: 20Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+grafana:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

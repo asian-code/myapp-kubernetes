@@ -75,7 +75,7 @@ myHealth is a personal health monitoring solution that integrates with the Oura 
 | **Terraform** | 1.14+ | Infrastructure as Code |
 | **Helm** | 3.13+ | Kubernetes package management |
 | **Istio** | 1.23+ | Service mesh (traffic, security, observability) |
-| **AWS RDS** | PostgreSQL 15.4 | Relational database (Multi-AZ) |
+| **AWS RDS** | PostgreSQL 18.1 | Relational database (Multi-AZ) |
 | **AWS ECR** | - | Container image registry |
 | **AWS Secrets Manager** | - | Secrets and credentials management |
 
@@ -561,10 +561,11 @@ For issues, questions, or feature requests:
 
 ## 🗺️ Roadmap
 
+- [ ] Expand functionality to support workout tracking with charts for trend progression
+- [ ] Flutter application for mobile (Android and iOS) and web app
 - [ ] Add rate limiting via nginx ingress controller
 - [ ] Implement log aggregation with ELK stack
 - [ ] Add WebSocket support for real-time updates
-- [ ] Create mobile app integration
 - [ ] Implement predictive health analytics with ML
 - [ ] Add export functionality (PDF reports)
 - [ ] Support multiple Oura Ring users

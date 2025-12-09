@@ -28,6 +28,11 @@ variable "region" {
   description = "AWS region"
 }
 
+variable "security_group_id" {
+  type        = string
+  description = "Security group ID for VPC endpoints"
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to all resources"

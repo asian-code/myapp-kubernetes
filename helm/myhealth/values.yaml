@@ -1,6 +1,6 @@
 # Global settings
 global:
-  environment: dev
+  environment: prod
   region: us-east-1
   domain: myhealth.eric-n.com
   namespace: myhealth
@@ -41,7 +41,7 @@ ouraCollector:
   env:
     processorUrl: "http://data-processor:8080"
     logLevel: "info"
-    dbSSLMode: "disable"  # Use 'require' for production
+    dbSSLMode: "require"
     userId: ""  # Set via --set - your user UUID from database
   secret:
     name: myhealth-secrets
@@ -82,7 +82,7 @@ dataProcessor:
     targetCPUUtilizationPercentage: 70
   env:
     logLevel: "info"
-    dbSSLMode: "disable"  # Use 'require' for production
+    dbSSLMode: "require"
     dbMaxConns: "10"
   secret:
     name: myhealth-secrets
@@ -117,7 +117,7 @@ apiService:
   env:
     logLevel: "info"
     processorUrl: "http://data-processor:8080"
-    dbSSLMode: "disable"  # Use 'require' for production
+    dbSSLMode: "require"
     dbMaxConns: "10"
   oauth:
     clientId: ""  # Set via --set or external secrets

@@ -13,9 +13,9 @@ variable "db_subnets" {
   description = "List of private subnet IDs"
 }
 
-variable "allowed_cidr_blocks" {
-  type        = list(string)
-  description = "CIDR blocks allowed to access RDS (typically VPC private subnets)"
+variable "security_group_id" {
+  type        = string
+  description = "Security group ID for RDS instance"
 }
 
 variable "instance_class" {
