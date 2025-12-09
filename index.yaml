@@ -1,0 +1,58 @@
+apiVersion: v1
+entries:
+  myhealth:
+  - apiVersion: v2
+    appVersion: "1.0"
+    created: "2025-12-09T16:07:11.039790077Z"
+    dependencies:
+    - alias: kubePrometheusStack
+      condition: kubePrometheusStack.enabled
+      name: kube-prometheus-stack
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 65.1.1
+    - condition: loki.enabled
+      name: loki
+      repository: https://grafana.github.io/helm-charts
+      version: 6.6.4
+    - condition: promtail.enabled
+      name: promtail
+      repository: https://grafana.github.io/helm-charts
+      version: 6.15.5
+    - condition: opentelemetryCollector.enabled
+      name: opentelemetry-collector
+      repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+      version: 0.97.1
+    - condition: velero.enabled
+      name: velero
+      repository: https://vmware-tanzu.github.io/helm-charts
+      version: 7.2.1
+    - condition: gatekeeper.enabled
+      name: gatekeeper
+      repository: https://open-policy-agent.github.io/gatekeeper/charts
+      version: 3.17.1
+    - condition: awsLoadBalancerController.enabled
+      name: aws-load-balancer-controller
+      repository: https://aws.github.io/eks-charts
+      version: 1.8.1
+    - condition: cilium.enabled
+      name: cilium
+      repository: https://helm.cilium.io/
+      version: 1.16.3
+    description: Oura Ring metrics stack on EKS
+    digest: 2e3ecca1cbdfa7aab611a06f5fe063b298c8932ccd5541036b250a354cea6d84
+    home: https://eric-n.com
+    keywords:
+    - oura-ring
+    - metrics
+    - kubernetes
+    - prometheus
+    - grafana
+    kubeVersion: '>=1.27.0'
+    name: myhealth
+    sources:
+    - https://github.com/asian-code/myapp-kubernetes
+    type: application
+    urls:
+    - https://github.com/asian-code/myapp-kubernetes/releases/download/myhealth-0.1.2/myhealth-0.1.2.tgz
+    version: 0.1.2
+generated: "2025-12-09T16:07:11.039799715Z"
