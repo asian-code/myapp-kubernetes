@@ -1,0 +1,341 @@
+name: 'Build Services'
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'services/**'
+      - '.github/workflows/build-services.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/**'
+
+env:
+  AWS_REGION: us-east-1
+  DOCKER_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  detect-changes:
+    name: 'Detect Changed Services'
+    runs-on: ubuntu-latest
+    outputs:
+      api_changed: ${{ steps.filter.outputs.api }}
+      processor_changed: ${{ steps.filter.outputs.processor }}
+      collector_changed: ${{ steps.filter.outputs.collector }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Check changed paths
+      uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          api:
+            - 'services/api-service/**'
+            - 'services/shared/**'
+          processor:
+            - 'services/data-processor/**'
+            - 'services/shared/**'
+          collector:
+            - 'services/oura-collector/**'
+            - 'services/shared/**'
+
+  # API Service Jobs
+  test-api-service:
+    name: 'Test API Service'
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api_changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Go fmt
+      run: |
+        cd services
+        go work sync
+        go fmt ./api-service/... ./shared/...
+      continue-on-error: true
+    
+    - name: Go vet
+      run: |
+        cd services
+        go vet ./api-service/... ./shared/...
+    
+    - name: Go test
+      run: |
+        cd services
+        go test -v -race -coverprofile=coverage-api.out ./api-service/... ./shared/...
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./services/coverage-api.out
+        flags: api-service
+        fail_ci_if_error: false
+
+  build-api-service:
+    name: 'Build & Push API Service'
+    runs-on: ubuntu-latest
+    needs: test-api-service
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
+    
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.DOCKER_REGISTRY }}
+    
+    - name: Build Docker image
+      run: |
+        cd services/api-service
+        docker build \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:${{ github.sha }} \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:latest \
+          .
+    
+    - name: Push to ECR
+      run: |
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:${{ github.sha }}
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:latest
+    
+    - name: Send Notification
+      shell: bash
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          curl -X POST \
+            -H "Title: Build api-service - SUCCESS" \
+            -H "Priority: 3" \
+            -H "Tags: build,success,api-service" \
+            -d "Image pushed to ECR: ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:${{ github.sha }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        else
+          curl -X POST \
+            -H "Title: Build api-service - FAILED" \
+            -H "Priority: 5" \
+            -H "Tags: build,failed,error,api-service" \
+            -d "Build failed. Check workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        fi
+      if: always()
+
+  # Data Processor Jobs
+  test-data-processor:
+    name: 'Test Data Processor'
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.processor_changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Go fmt
+      run: |
+        cd services
+        go work sync
+        go fmt ./data-processor/... ./shared/...
+      continue-on-error: true
+    
+    - name: Go vet
+      run: |
+        cd services
+        go vet ./data-processor/... ./shared/...
+    
+    - name: Go test
+      run: |
+        cd services
+        go test -v -race -coverprofile=coverage-processor.out ./data-processor/... ./shared/...
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./services/coverage-processor.out
+        flags: data-processor
+        fail_ci_if_error: false
+
+  build-data-processor:
+    name: 'Build & Push Data Processor'
+    runs-on: ubuntu-latest
+    needs: test-data-processor
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
+    
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.DOCKER_REGISTRY }}
+    
+    - name: Build Docker image
+      run: |
+        cd services/data-processor
+        docker build \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:${{ github.sha }} \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:latest \
+          .
+    
+    - name: Push to ECR
+      run: |
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:${{ github.sha }}
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:latest
+    
+    - name: Send Notification
+      shell: bash
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          curl -X POST \
+            -H "Title: Build data-processor - SUCCESS" \
+            -H "Priority: 3" \
+            -H "Tags: build,success,data-processor" \
+            -d "Image pushed to ECR: ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:${{ github.sha }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        else
+          curl -X POST \
+            -H "Title: Build data-processor - FAILED" \
+            -H "Priority: 5" \
+            -H "Tags: build,failed,error,data-processor" \
+            -d "Build failed. Check workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        fi
+      if: always()
+
+  # Oura Collector Jobs
+  test-oura-collector:
+    name: 'Test Oura Collector'
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.collector_changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Go fmt
+      run: |
+        cd services
+        go work sync
+        go fmt ./oura-collector/... ./shared/...
+      continue-on-error: true
+    
+    - name: Go vet
+      run: |
+        cd services
+        go vet ./oura-collector/... ./shared/...
+    
+    - name: Go test
+      run: |
+        cd services
+        go test -v -race -coverprofile=coverage-collector.out ./oura-collector/... ./shared/...
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./services/coverage-collector.out
+        flags: oura-collector
+        fail_ci_if_error: false
+
+  build-oura-collector:
+    name: 'Build & Push Oura Collector'
+    runs-on: ubuntu-latest
+    needs: test-oura-collector
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
+    
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.DOCKER_REGISTRY }}
+    
+    - name: Build Docker image
+      run: |
+        cd services/oura-collector
+        docker build \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:${{ github.sha }} \
+          -t ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:latest \
+          .
+    
+    - name: Push to ECR
+      run: |
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:${{ github.sha }}
+        docker push ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:latest
+    
+    - name: Send Notification
+      shell: bash
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          curl -X POST \
+            -H "Title: Build oura-collector - SUCCESS" \
+            -H "Priority: 3" \
+            -H "Tags: build,success,oura-collector" \
+            -d "Image pushed to ECR: ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:${{ github.sha }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        else
+          curl -X POST \
+            -H "Title: Build oura-collector - FAILED" \
+            -H "Priority: 5" \
+            -H "Tags: build,failed,error,oura-collector" \
+            -d "Build failed. Check workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.NTFY_URL }}/cicd"
+        fi
+      if: always()
