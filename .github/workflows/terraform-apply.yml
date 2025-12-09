@@ -6,12 +6,20 @@ on:
       - main
     paths:
       - 'terraform/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
 
 jobs:
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
     environment: production
+    env:
+      AWS_REGION: us-east-1
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     defaults:
       run:
@@ -30,11 +38,12 @@ jobs:
       with:
         terraform_version: 1.6.0
     
-    - name: Configure AWS Credentials
+    - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
     
     - name: Terraform Init
       run: terraform init

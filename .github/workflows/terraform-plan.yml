@@ -2,6 +2,14 @@ name: 'Terraform Plan'
 
 on:
   pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-plan.yml'
+  push:
+    branches:
+      - main
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-plan.yml'
@@ -10,6 +18,8 @@ jobs:
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
     
     defaults:
       run:
@@ -33,11 +43,12 @@ jobs:
       run: terraform fmt -check -recursive
       continue-on-error: true
     
-    - name: Configure AWS Credentials
+    - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
     
     - name: Terraform Init
       run: terraform init

@@ -8,6 +8,13 @@ on:
       - 'helm/**'
       - 'services/**'
       - '.github/workflows/helm-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+      - 'services/**'
+      - '.github/workflows/helm-deploy.yml'
 
 env:
   HELM_CHART_PATH: helm/myhealth
@@ -21,6 +28,7 @@ jobs:
     environment:
       name: production
       url: https://api.eric-n.com
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     permissions:
       id-token: write
@@ -41,11 +49,12 @@ jobs:
         helm repo add grafana https://grafana.github.io/helm-charts
         helm repo update
     
-    - name: Configure AWS Credentials
+    - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: github-actions-${{ github.run_id }}
     
     - name: Update kubeconfig
       run: |

@@ -4,83 +4,207 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  pr-checks:
-    name: 'PR Validation Checks'
+  changes:
+    name: 'Detect Changes'
     runs-on: ubuntu-latest
-    
+    outputs:
+      helm: ${{ steps.filter.outputs.helm }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Check PR Title
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const pr = context.payload.pull_request;
-          const title = pr.title;
-          
-          // Check if title follows conventional commits
-          const conventionalCommit = /^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\(.+\))?!?: .+/;
-          if (!conventionalCommit.test(title)) {
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            helm:
+              - 'helm/**'
+            terraform:
+              - 'terraform/**'
+            docs:
+              - '**/*.md'
+            workflows:
+              - '.github/workflows/**'
+
+  pr-checks:
+    name: 'PR Meta Checks'
+    runs-on: ubuntu-latest
+    needs: changes
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check PR Title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title;
+            const conventionalCommit = /^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\(.+\))?!?: .+/;
+            if (!conventionalCommit.test(title)) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '⚠️ PR title should follow conventional commits format: `type(scope): description`\n\nExamples: `feat(helm): add prometheus alerts`, `fix(api-service): fix database connection`'
+              });
+            }
+
+      - name: Check for Large Changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changedFiles = context.payload.pull_request.changed_files;
+            if (changedFiles > 50) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '⚠️ This PR changes many files (' + changedFiles + '). Consider breaking it into smaller PRs.'
+              });
+            }
+
+  helm-validate:
+    name: 'Helm Lint & Validate'
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.13.0'
+
+      - name: Add Helm Repos
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+
+      - name: Helm Lint
+        run: helm lint helm/myhealth --strict
+
+      - name: Helm Template
+        run: |
+          helm template myhealth helm/myhealth --values helm/myhealth/values.yaml > /tmp/manifest.yaml
+
+      - name: Kubeval
+        uses: instrumenta/kubeval-action@master
+        with:
+          files: /tmp/manifest.yaml
+          strict: true
+
+      - name: Comment Lint Results on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ PR title should follow conventional commits format: `type(scope): description`\n\nExamples: `feat(helm): add prometheus alerts`, `fix(api-service): fix database connection`'
+              body: '✅ Helm chart linting and validation passed successfully'
             });
-          }
-    
-    - name: Check for Breaking Changes
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const changedFiles = context.payload.pull_request.changed_files;
-          
-          if (changedFiles > 50) {
+        if: success()
+
+      - name: Comment Lint Failure on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ This PR changes many files (' + changedFiles + '). Consider breaking it into smaller PRs.'
+              body: '❌ Helm chart linting/validation failed. Check logs for details.'
             });
-          }
-    
-    - name: Summary Comment
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const summary = [
-            '## 🔍 Automated PR Checks',
-            '',
-            '### Validations Running:',
-            '- ✅ Terraform Plan (if terraform/ changed)',
-            '- ✅ Helm Lint & Validation (if helm/ changed)',
-            '- ✅ Go Tests (if services/ changed)',
-            '- ✅ Docker Build (if services/ changed)',
-            '',
-            '### Before Merge:',
-            '1. Ensure all status checks pass',
-            '2. Request reviews from team leads',
-            '3. Verify changes do not conflict with staging/prod',
-            '',
-            '### Manual Deployment:',
-            '- Dev: Automatic on PR merge',
-            '- Staging: Automatic after Dev passes',
-            '- Production: Requires manual approval',
-            '',
-            'See workflow status below ⬇️'
-          ].join('\n');
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: summary
-          });
+        if: failure()
+
+  terraform-plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+    env:
+      AWS_REGION: us-east-1
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -no-color -out=tfplan
+        env:
+          TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
+
+      - name: Convert Plan to JSON
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Comment Plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('./terraform/tfplan.json', 'utf8');
+            const json = JSON.parse(plan);
+            const changes = json.resource_changes || [];
+            const creates = changes.filter(c => c.change.actions.includes('create')).length;
+            const updates = changes.filter(c => c.change.actions.includes('update')).length;
+            const deletes = changes.filter(c => c.change.actions.includes('delete')).length;
+            const comment = `### Terraform Plan Summary\n- **Creates**: ${creates}\n- **Updates**: ${updates}\n- **Deletes**: ${deletes}\n`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
