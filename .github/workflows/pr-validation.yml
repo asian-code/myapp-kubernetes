@@ -41,6 +41,7 @@ jobs:
     name: 'PR Meta Checks'
     runs-on: ubuntu-latest
     needs: changes
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -118,7 +119,7 @@ jobs:
               repo: context.repo.repo,
               body: '✅ Helm chart linting and validation passed successfully'
             });
-        if: success()
+        if: success() && github.event_name == 'pull_request'
 
       - name: Comment Lint Failure on PR
         uses: actions/github-script@v7
@@ -130,7 +131,7 @@ jobs:
               repo: context.repo.repo,
               body: '❌ Helm chart linting/validation failed. Check logs for details.'
             });
-        if: failure()
+        if: failure() && github.event_name == 'pull_request'
 
   terraform-plan:
     name: 'Terraform Plan'
@@ -202,6 +203,7 @@ jobs:
               repo: context.repo.repo,
               body: comment
             });
+        if: github.event_name == 'pull_request'
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
