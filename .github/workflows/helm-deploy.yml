@@ -283,17 +283,10 @@ jobs:
       shell: bash
       run: |
         curl -X POST \
-          -H "Title: Production Deployment - SUCCESS ✅" \
+          -H "Title: Production Deployment - SUCCESS" \
           -H "Priority: 3" \
           -H "Tags: deployment,production,success" \
-          -d "Production deployment completed successfully! 🚀
-          
-Commit: ${{ github.sha }}
-Repository: ${{ github.repository }}
-Branch: ${{ github.ref }}
-Actor: ${{ github.actor }}
-
-URL: https://api.eric-n.com" \
+          -d "Production deployment completed successfully! Commit: ${{ github.sha }} Repository: ${{ github.repository }} Branch: ${{ github.ref }} Actor: ${{ github.actor }} URL: https://api.eric-n.com" \
           "${{ secrets.NTFY_URL }}/cicd"
       if: success()
     
@@ -301,13 +294,12 @@ URL: https://api.eric-n.com" \
       shell: bash
       run: |
         curl -X POST \
-          -H "Title: Production Deployment - FAILED ❌" \
+          -H "Title: Production Deployment - FAILED" \
           -H "Priority: 5" \
           -H "Tags: deployment,production,failed,error" \
-          -d "Production deployment FAILED! 🚨
-          
-Commit: ${{ github.sha }}
-Repository: ${{ github.repository }}
+          -d "Production deployment FAILED! Commit: ${{ github.sha }} Repository: ${{ github.repository }} Branch: ${{ github.ref }} Actor: ${{ github.actor }}" \
+          "${{ secrets.NTFY_URL }}/cicd"
+      if: failure()
 Actor: ${{ github.actor }}
 Check workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
           "${{ secrets.NTFY_URL }}/cicd"
