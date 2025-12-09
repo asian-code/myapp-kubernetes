@@ -35,18 +35,19 @@ jobs:
     - name: Go fmt
       run: |
         cd services
-        go fmt ./...
+        go work sync
+        go fmt ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
       continue-on-error: true
     
     - name: Go vet
       run: |
         cd services
-        go vet ./...
+        go vet ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
     
     - name: Go test
       run: |
         cd services
-        go test -v -race -coverprofile=coverage.out ./...
+        go test -v -race -coverprofile=coverage.out ./api-service/... ./data-processor/... ./oura-collector/... ./shared/...
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
