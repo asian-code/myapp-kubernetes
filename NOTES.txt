@@ -1,11 +1,14 @@
 - create security groups for each layer
 - ensure multi az RDS with 1 master and others standby
 [!] review go services and test api with postman
----
 - setup OIDC with aws and github actions
+
+
+---
 - review helm charts deployment with pipeline
 - auto deploy ArgoCD
 - review istio configuration for services
 - setup monitoring and logging with prometheus/grafana
 
 
+how would the app know what the endpoint for the rds service is? (passed via secrets to eks as a secret which then get injected to the deployment as env variable)
