@@ -113,8 +113,9 @@ jobs:
     
     - name: Build Docker image
       run: |
-        cd services/api-service
+        cd services
         docker build \
+          -f api-service/Dockerfile \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:${{ github.sha }} \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/api-service:latest \
           .
@@ -211,8 +212,9 @@ jobs:
     
     - name: Build Docker image
       run: |
-        cd services/data-processor
+        cd services
         docker build \
+          -f data-processor/Dockerfile \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:${{ github.sha }} \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/data-processor:latest \
           .
@@ -309,8 +311,9 @@ jobs:
     
     - name: Build Docker image
       run: |
-        cd services/oura-collector
+        cd services
         docker build \
+          -f oura-collector/Dockerfile \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:${{ github.sha }} \
           -t ${{ env.DOCKER_REGISTRY }}/myhealth/oura-collector:latest \
           .

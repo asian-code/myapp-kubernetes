@@ -40,14 +40,14 @@ data:
     - name: 'default'
       slack_configs:
         - channel: '#alerts-general'
-          title: 'Alert: {{ .GroupLabels.alertname }}'
-          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}'
+          title: 'Alert: {{`{{ .GroupLabels.alertname }}`}}'
+          text: '{{`{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}`}}'
 
     - name: 'critical'
       slack_configs:
         - channel: '#alerts-critical'
-          title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
-          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}\nRunbook: {{ .Annotations.runbook_url }}{{ end }}'
+          title: '🚨 CRITICAL: {{`{{ .GroupLabels.alertname }}`}}'
+          text: '{{`{{ range .Alerts.Firing }}{{ .Annotations.description }}\nRunbook: {{ .Annotations.runbook_url }}{{ end }}`}}'
       # Could add PagerDuty, Opsgenie, etc.
       # pagerduty_configs:
       #   - service_key: '${PAGERDUTY_SERVICE_KEY}'
@@ -55,8 +55,8 @@ data:
     - name: 'warning'
       slack_configs:
         - channel: '#alerts-warning'
-          title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
-          text: '{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}'
+          title: '⚠️ WARNING: {{`{{ .GroupLabels.alertname }}`}}'
+          text: '{{`{{ range .Alerts.Firing }}{{ .Annotations.description }}{{ end }}`}}'
 
     # Inhibition rules suppress alerts
     inhibit_rules:

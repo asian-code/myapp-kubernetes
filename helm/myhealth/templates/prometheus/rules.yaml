@@ -25,7 +25,7 @@ spec:
         component: api
       annotations:
         summary: "High HTTP error rate detected"
-        description: "Service {{ $labels.service }} endpoint {{ $labels.endpoint }} has error rate > 5% for 5 minutes"
+        description: 'Service {{`{{ $labels.service }}`}} endpoint {{`{{ $labels.endpoint }}`}} has error rate > 5% for 5 minutes'
         runbook_url: "https://internal.eric-n.com/runbooks/high-error-rate"
 
     # HTTP Latency Alert
@@ -39,7 +39,7 @@ spec:
         component: api
       annotations:
         summary: "High HTTP request latency detected"
-        description: "Service {{ $labels.service }} endpoint {{ $labels.endpoint }} p99 latency > 1s for 5 minutes"
+        description: 'Service {{`{{ $labels.service }}`}} endpoint {{`{{ $labels.endpoint }}`}} p99 latency > 1s for 5 minutes'
         runbook_url: "https://internal.eric-n.com/runbooks/high-latency"
 
     # Database Query Latency Alert
@@ -53,7 +53,7 @@ spec:
         component: database
       annotations:
         summary: "High database query latency detected"
-        description: "Service {{ $labels.service }} query type {{ $labels.query_type }} p95 latency > 1s for 5 minutes"
+        description: 'Service {{`{{ $labels.service }}`}} query type {{`{{ $labels.query_type }}`}} p95 latency > 1s for 5 minutes'
         runbook_url: "https://internal.eric-n.com/runbooks/db-latency"
 
     # Database Connection Errors Alert
@@ -65,7 +65,7 @@ spec:
         component: database
       annotations:
         summary: "Database connection errors detected"
-        description: "Service {{ $labels.service }} experiencing database connection errors: {{ $value }} errors/sec"
+        description: 'Service {{`{{ $labels.service }}`}} experiencing database connection errors: {{`{{ $value }}`}} errors/sec'
         runbook_url: "https://internal.eric-n.com/runbooks/db-connection-errors"
 
     # Pod Crash Alert
@@ -78,7 +78,7 @@ spec:
         component: kubernetes
       annotations:
         summary: "Pod restarting frequently"
-        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in 15 minutes"
+        description: 'Pod {{`{{ $labels.pod }}`}} in namespace {{`{{ $labels.namespace }}`}} has restarted {{`{{ $value }}`}} times in 15 minutes'
         runbook_url: "https://internal.eric-n.com/runbooks/pod-crashing"
 
     # High Memory Usage Alert
@@ -92,7 +92,7 @@ spec:
         component: kubernetes
       annotations:
         summary: "High memory usage detected"
-        description: "Pod {{ $labels.pod }} memory usage > 90% of limit ({{ $value | humanizePercentage }})"
+        description: 'Pod {{`{{ $labels.pod }}`}} memory usage > 90% of limit ({{`{{ $value | humanizePercentage }}`}})'
         runbook_url: "https://internal.eric-n.com/runbooks/high-memory"
 
     # High CPU Usage Alert
@@ -106,7 +106,7 @@ spec:
         component: kubernetes
       annotations:
         summary: "High CPU usage detected"
-        description: "Pod {{ $labels.pod }} CPU usage > 80% ({{ $value | humanize }}%)"
+        description: 'Pod {{`{{ $labels.pod }}`}} CPU usage > 80% ({{`{{ $value | humanize }}`}}%)'
         runbook_url: "https://internal.eric-n.com/runbooks/high-cpu"
 
     # Collector Failures Alert
@@ -119,7 +119,7 @@ spec:
         component: collector
       annotations:
         summary: "Oura collector experiencing high failure rate"
-        description: "Oura collector error rate > 50% for 1 hour: {{ $value | humanizePercentage }}"
+        description: 'Oura collector error rate > 50% for 1 hour: {{`{{ $value | humanizePercentage }}`}}'
         runbook_url: "https://internal.eric-n.com/runbooks/collector-failures"
 
     # Collector Not Running Alert
@@ -132,7 +132,7 @@ spec:
         component: collector
       annotations:
         summary: "Oura collector has not run successfully in 24 hours"
-        description: "Last successful collector run was {{ $value | humanizeDuration }} ago"
+        description: 'Last successful collector run was {{`{{ $value | humanizeDuration }}`}} ago'
         runbook_url: "https://internal.eric-n.com/runbooks/collector-not-running"
 
     # Prometheus Scrape Failure
@@ -144,7 +144,7 @@ spec:
         component: monitoring
       annotations:
         summary: "Prometheus scrape failure"
-        description: "Target {{ $labels.instance }} has been unreachable for 5 minutes"
+        description: 'Target {{`{{ $labels.instance }}`}} has been unreachable for 5 minutes'
         runbook_url: "https://internal.eric-n.com/runbooks/scrape-failure"
 
     # Data Processing Lag Alert
@@ -157,7 +157,7 @@ spec:
         component: processor
       annotations:
         summary: "Data processing lag detected"
-        description: "Data processor has not processed new records in the last {{ $value | humanizeDuration }}"
+        description: 'Data processor has not processed new records in the last {{`{{ $value | humanizeDuration }}`}}'
         runbook_url: "https://internal.eric-n.com/runbooks/processing-lag"
 
     # HTTP Requests In Progress Spike
@@ -170,6 +170,6 @@ spec:
         component: api
       annotations:
         summary: "Unusual spike in in-progress HTTP requests"
-        description: "Service {{ $labels.service }} has {{ $value }} in-progress requests (typical < 50)"
+        description: 'Service {{`{{ $labels.service }}`}} has {{`{{ $value }}`}} in-progress requests (typical < 50)'
         runbook_url: "https://internal.eric-n.com/runbooks/request-spike"
 {{- end }}

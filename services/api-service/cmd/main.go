@@ -56,6 +56,11 @@ func main() {
 	// Initialize repository
 	repo := repository.New(db, log)
 
+	// Initialize database schema (creates users and oauth_tokens tables)
+	if err := repo.InitSchema(ctx); err != nil {
+		log.WithError(err).Fatal("Failed to initialize database schema")
+	}
+
 	// Initialize metrics
 	m := metrics.New("api-service")
 
@@ -74,11 +79,11 @@ func main() {
 	// Public routes (no authentication required)
 	router.HandleFunc("/health", h.Health).Methods("GET")
 	router.HandleFunc("/metrics", h.PrometheusMetrics).Methods("GET")
-	
+
 	// Auth routes
 	router.HandleFunc("/api/register", userHandler.Register).Methods("POST")
 	router.HandleFunc("/api/login", userHandler.Login).Methods("POST")
-	
+
 	// OAuth routes (require authentication to initiate)
 	router.Handle("/api/oauth/authorize", auth.AuthMiddleware(cfg.JWTSecret)(http.HandlerFunc(oauthHandler.Authorize))).Methods("GET")
 	router.HandleFunc("/api/callback", oauthHandler.Callback).Methods("GET")

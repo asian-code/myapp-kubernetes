@@ -31,6 +31,14 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# RBAC
+rbac:
+  create: true
+
+# Network Policies
+networkPolicies:
+  enabled: true
+
 # Oura Collector (CronJob)
 ouraCollector:
   enabled: true
@@ -139,8 +147,7 @@ database:
   password: "change-me"  # Only used if ExternalSecrets disabled
   name: "myhealth"
 
-# Oura + JWT secret placeholders (used only if ExternalSecrets disabled)
-ouraApiKey: ""
+# JWT secret placeholder (used only if ExternalSecrets disabled)
 jwtSecret: ""
 
 # Istio Configuration
@@ -216,3 +223,28 @@ dashboards:
   enabled: true
   ouraMetrics: true
   serviceHealth: true
+
+# Dependency chart toggles (Chart.yaml conditions)
+kubePrometheusStack:
+  enabled: true
+
+loki:
+  enabled: false
+
+promtail:
+  enabled: false
+
+opentelemetryCollector:
+  enabled: false
+
+velero:
+  enabled: false
+
+gatekeeper:
+  enabled: false
+
+awsLoadBalancerController:
+  enabled: true
+
+cilium:
+  enabled: false

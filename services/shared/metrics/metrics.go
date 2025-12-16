@@ -24,18 +24,18 @@ type Metrics struct {
 
 	// Service-specific metrics (declared in each service)
 	// Data Processor metrics
-	ProcessedRecordsTotal   prometheus.Counter
-	ProcessingDuration      prometheus.Histogram
-	ProcessingErrors        prometheus.CounterVec
-	ProcessingQueueDepth    prometheus.Gauge
-	LastProcessedTimestamp  prometheus.Gauge
+	ProcessedRecordsTotal  prometheus.Counter
+	ProcessingDuration     prometheus.Histogram
+	ProcessingErrors       prometheus.CounterVec
+	ProcessingQueueDepth   prometheus.Gauge
+	LastProcessedTimestamp prometheus.Gauge
 
 	// Oura Collector metrics
-	CollectionRunsTotal     prometheus.Counter
-	CollectionDuration      prometheus.Histogram
-	DataPointsCollected     prometheus.Counter
-	CollectionErrors        prometheus.CounterVec
-	LastSuccessfulRunTime   prometheus.Gauge
+	CollectionRunsTotal   prometheus.Counter
+	CollectionDuration    prometheus.Histogram
+	DataPointsCollected   prometheus.Counter
+	CollectionErrors      prometheus.CounterVec
+	LastSuccessfulRunTime prometheus.Gauge
 }
 
 var (
@@ -184,12 +184,12 @@ func New(serviceName string) *Metrics {
 			CollectionErrors: *promauto.NewCounterVec(
 				prometheus.CounterOpts{
 					Name: "collector_errors_total",
-					Help: "Total collector errors by type",
+					Help: "Total collector errors by data type and error type",
 					ConstLabels: map[string]string{
 						"service": serviceName,
 					},
 				},
-				[]string{"error_type"},
+				[]string{"data_type", "error_type"},
 			),
 			LastSuccessfulRunTime: promauto.NewGauge(prometheus.GaugeOpts{
 				Name: "collector_last_successful_run_timestamp_seconds",

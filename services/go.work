@@ -1,8 +1,8 @@
 go 1.21
 
 use (
-  ./shared
-  ./oura-collector
-  ./data-processor
-  ./api-service
+	./api-service
+	./data-processor
+	./oura-collector
+	./shared
 )

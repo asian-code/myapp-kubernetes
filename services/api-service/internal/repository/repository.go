@@ -20,6 +20,46 @@ func New(db *pgxpool.Pool, logger *log.Entry) *Repository {
 	}
 }
 
+// InitSchema creates users and oauth_tokens tables if they don't exist
+func (r *Repository) InitSchema(ctx context.Context) error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			username VARCHAR(255) UNIQUE NOT NULL,
+			email VARCHAR(255) UNIQUE NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			last_login TIMESTAMP,
+			is_active BOOLEAN DEFAULT true
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`,
+		`CREATE TABLE IF NOT EXISTS oauth_tokens (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			provider VARCHAR(50) NOT NULL DEFAULT 'oura',
+			access_token TEXT NOT NULL,
+			refresh_token TEXT NOT NULL,
+			token_type VARCHAR(50) DEFAULT 'Bearer',
+			expires_at TIMESTAMP NOT NULL,
+			scope TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(user_id, provider)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user_provider ON oauth_tokens(user_id, provider)`,
+	}
+
+	for _, query := range queries {
+		if _, err := r.db.Exec(ctx, query); err != nil {
+			return err
+		}
+	}
+
+	r.logger.Info("Database schema initialized (users, oauth_tokens)")
+	return nil
+}
+
 type SleepMetric struct {
 	OuraID   string    `json:"oura_id"`
 	Day      time.Time `json:"day"`
