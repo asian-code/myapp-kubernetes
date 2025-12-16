@@ -10,17 +10,8 @@ spec:
   selector:
     istio: ingressgateway
   servers:
-    - port:
-        number: 443
-        name: https
-        protocol: HTTPS
-      tls:
-        mode: SIMPLE
-        credentialName: {{ .Values.global.tlsSecretName }}
-      hosts:
-        {{- range .Values.istio.gateway.hosts }}
-        - "{{ . }}"
-        {{- end }}
+    # HTTPS is handled by the AWS ALB (Layer 7).
+    # The ALB decrypts traffic and sends plain HTTP to this Gateway.
     - port:
         number: 80
         name: http

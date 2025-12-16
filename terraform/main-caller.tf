@@ -96,6 +96,14 @@ module "ecr" {
   tags   = local.tags
 }
 
+# ACM Certificate (Manual Validation via Cloudflare)
+module "acm" {
+  source = "./modules/acm"
+
+  domain_name = "myhealth.eric-n.com"
+  tags        = local.tags
+}
+
 # Secrets Manager module
 module "secrets_manager" {
   source = "./modules/secrets-manager"

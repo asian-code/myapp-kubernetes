@@ -1,0 +1,99 @@
+# Platform Stack Configuration
+# This file enables infrastructure components and disables application microservices.
+# Used by ArgoCD application: platform-stack
+
+# --- Disable Applications ---
+apiService:
+  enabled: false
+
+dataProcessor:
+  enabled: false
+
+ouraCollector:
+  enabled: false
+
+# Disable App-specific Secrets (DB creds, API keys)
+externalSecrets:
+  enabled: false
+
+# --- Enable Platform Dependencies ---
+kubePrometheusStack:
+  enabled: true
+
+awsLoadBalancerController:
+  enabled: true
+
+# --- Platform Configuration ---
+prometheus:
+  enabled: true
+  server:
+    retention: "15d"
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+grafana:
+  enabled: true
+  adminUser: admin
+  # Password should ideally be set via --set or secret, defaulting to 'changeme' for now
+  adminPassword: changeme
+  service:
+    type: ClusterIP
+    port: 3000
+  persistence:
+    enabled: true
+    size: 5Gi
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server
+          isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+  dashboardsConfigMaps:
+    default: "grafana-dashboards"
+
+# Dashboards (ConfigMaps)
+dashboards:
+  enabled: true
+  ouraMetrics: true
+  serviceHealth: true
+
+# Other dependencies (Disabled by default)
+loki:
+  enabled: false
+
+promtail:
+  enabled: false
+
+opentelemetryCollector:
+  enabled: false
+
+velero:
+  enabled: false
+
+gatekeeper:
+  enabled: false
+
+cilium:
+  enabled: false
