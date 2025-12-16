@@ -1,6 +1,74 @@
 apiVersion: v1
 entries:
+  argocd:
+  - apiVersion: v2
+    created: "2025-12-16T04:02:24.215415076Z"
+    dependencies:
+    - name: argo-cd
+      repository: https://argoproj.github.io/argo-helm
+      version: 7.6.12
+    description: Argo CD installation for GitOps
+    digest: 994e34217f10a85cca6ec4971fe465320f2a6a04ad5ab742ae6fb487d1459903
+    name: argocd
+    type: application
+    urls:
+    - https://github.com/asian-code/myapp-kubernetes/releases/download/argocd-1.0.0/argocd-1.0.0.tgz
+    version: 1.0.0
   myhealth:
+  - apiVersion: v2
+    appVersion: "1.0"
+    created: "2025-12-16T04:02:24.555385467Z"
+    dependencies:
+    - alias: kubePrometheusStack
+      condition: kubePrometheusStack.enabled
+      name: kube-prometheus-stack
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 65.1.1
+    - condition: loki.enabled
+      name: loki
+      repository: https://grafana.github.io/helm-charts
+      version: 6.6.4
+    - condition: promtail.enabled
+      name: promtail
+      repository: https://grafana.github.io/helm-charts
+      version: 6.15.5
+    - condition: opentelemetryCollector.enabled
+      name: opentelemetry-collector
+      repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+      version: 0.97.1
+    - condition: velero.enabled
+      name: velero
+      repository: https://vmware-tanzu.github.io/helm-charts
+      version: 7.2.1
+    - condition: gatekeeper.enabled
+      name: gatekeeper
+      repository: https://open-policy-agent.github.io/gatekeeper/charts
+      version: 3.17.1
+    - condition: awsLoadBalancerController.enabled
+      name: aws-load-balancer-controller
+      repository: https://aws.github.io/eks-charts
+      version: 1.8.1
+    - condition: cilium.enabled
+      name: cilium
+      repository: https://helm.cilium.io/
+      version: 1.16.3
+    description: Oura Ring metrics stack on EKS
+    digest: 1a808065a8915b0775d9aeba8bf47904ed594b0cff13b14e8027980033e402e3
+    home: https://eric-n.com
+    keywords:
+    - oura-ring
+    - metrics
+    - kubernetes
+    - prometheus
+    - grafana
+    kubeVersion: '>=1.27.0'
+    name: myhealth
+    sources:
+    - https://github.com/asian-code/myapp-kubernetes
+    type: application
+    urls:
+    - https://github.com/asian-code/myapp-kubernetes/releases/download/myhealth-0.1.10/myhealth-0.1.10.tgz
+    version: 0.1.10
   - apiVersion: v2
     appVersion: "1.0"
     created: "2025-12-16T01:08:22.876650261Z"
@@ -433,4 +501,4 @@ entries:
     urls:
     - https://github.com/asian-code/myapp-kubernetes/releases/download/myhealth-0.1.2/myhealth-0.1.2.tgz
     version: 0.1.2
-generated: "2025-12-16T01:08:22.876685917Z"
+generated: "2025-12-16T04:02:24.555428828Z"
