@@ -3,7 +3,7 @@ name: myhealth
 description: Oura Ring metrics stack on EKS
 kubeVersion: ">=1.27.0"
 type: application
-version: 0.1.11
+version: 0.1.12
 appVersion: "1.0"
 
 keywords:
