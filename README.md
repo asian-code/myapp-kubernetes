@@ -6,8 +6,6 @@
 
 A production-grade, cloud-native microservices platform for collecting, processing, and visualizing health metrics from the Oura Ring API. Built with Kubernetes on AWS EKS, this system provides comprehensive monitoring of sleep, activity, and readiness data with enterprise-level observability.
 
-> **🎉 Phase 1 Refactoring Complete!** See [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) for details on the latest architectural improvements including centralized error handling, config validation, and database migrations.
-
 ---
 
 ## 🎯 Overview
@@ -33,7 +31,8 @@ myHealth is a personal health monitoring solution that integrates with the Oura 
 ## 🏗️ Architecture
 
 ### High-Level Architecture
-![High-Level Architecture](diagram/diagram.png)
+
+![High-Level Architecture](docs/reference/architecture/diagrams/diagram.png)
 
 
 ### Microservices
@@ -205,10 +204,11 @@ myapp-kubernetes/
 │               └── configmap-dashboards.yaml
 │
 └── docs/
-    ├── PROJECT_PLAN.md                 # Complete architecture guide
-    ├── OAUTH_AND_AUTH_IMPLEMENTATION.md # OAuth2 & auth setup
-    ├── IMPLEMENTATION_GUIDE.md         # Development guide
-    └── DOCUMENTATION_INDEX.md          # Docs navigation
+    ├── index.md                        # Documentation Home (Start Here)
+    ├── tutorials/                      # Onboarding & Learning
+    ├── how-to/                         # Guides & Runbooks
+    ├── reference/                      # Specs, ADRs, & Helm info
+    └── explanation/                    # Architecture & Best Practices
 ```
 
 ---
@@ -472,56 +472,15 @@ See `helm/myhealth/values.yaml` for complete configuration options.
 
 ---
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Issue**: OAuth2 authorization fails
-```bash
-# Check redirect URI matches Oura app configuration
-kubectl logs -n myhealth -l app=api-service --tail=100
-
-# Verify secrets are loaded
-kubectl get externalsecrets -n myhealth
-kubectl describe externalsecret myhealth-oura-credentials -n myhealth
-```
-
-**Issue**: Database connection failures
-```bash
-# Check RDS security group
-aws ec2 describe-security-groups --group-ids <rds-sg-id>
-
-# Verify SSL mode
-kubectl get configmap -n myhealth -o yaml | grep SSL_MODE
-
-# Test connection from pod
-kubectl exec -it -n myhealth deployment/api-service -- /bin/sh
-psql "host=$DB_HOST port=5432 user=$DB_USER dbname=$DB_NAME sslmode=require"
-```
-
-**Issue**: CronJob not collecting data
-```bash
-# Check CronJob status
-kubectl get cronjobs -n myhealth
-kubectl get jobs -n myhealth
-
-# View logs
-kubectl logs -n myhealth -l app=oura-collector --tail=50
-
-# Verify user_id is set
-kubectl describe cronjob oura-collector -n myhealth | grep USER_ID
-```
-
-For more troubleshooting, see `docs/OAUTH_AND_AUTH_IMPLEMENTATION.md`.
-
----
-
 ## 📚 Documentation
 
-- **[Project Plan](docs/PROJECT_PLAN.md)**: Complete architecture and design
-- **[OAuth & Auth Guide](docs/OAUTH_AND_AUTH_IMPLEMENTATION.md)**: Authentication setup
-- **[Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)**: Phase-by-phase development
-- **[Documentation Index](docs/DOCUMENTATION_INDEX.md)**: All documentation navigation
+We follow the **Diátaxis** documentation framework:
+
+- **[Start Here](docs/index.md)**: The main entry point for all documentation.
+- **[Tutorials](docs/tutorials/)**: Step-by-step lessons (e.g., [Day 1 Onboarding](docs/tutorials/01-onboarding.md)).
+- **[How-To Guides](docs/how-to/)**: Practical steps (e.g., [Deployment Guide](docs/how-to/deployment-guide.md), [Runbook](docs/how-to/operations/runbook.md)).
+- **[Reference](docs/reference/)**: Technical specs (e.g., [Service Catalog](docs/reference/service-catalog.md), [Helm Guide](docs/reference/helm/guide.md)).
+- **[Explanation](docs/explanation/)**: Background & Design (e.g., [Architecture](docs/explanation/architecture-overview.md), [Best Practices](docs/explanation/best-practices.md)).
 
 ---
 
@@ -537,27 +496,12 @@ This is a personal project, but suggestions and improvements are welcome:
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 🙏 Acknowledgments
 
 - **Oura Ring API**: For providing comprehensive health data access
 - **Kubernetes Community**: For excellent tooling and documentation
 - **HashiCorp**: For Terraform and infrastructure automation
 - **Prometheus & Grafana**: For world-class monitoring solutions
-
----
-
-## 📞 Support
-
-For issues, questions, or feature requests:
-- **GitHub Issues**: [asian-code/myapp-kubernetes/issues](https://github.com/asian-code/myapp-kubernetes/issues)
-- **Documentation**: Check `docs/` directory
-- **Email**: Contact via GitHub profile
 
 ---
 
@@ -573,6 +517,3 @@ For issues, questions, or feature requests:
 - [ ] Support multiple Oura Ring users
 - [ ] Integrate with additional health APIs (Apple Health, Fitbit)
 
----
-
-**Built with ❤️ using Go, Kubernetes, and AWS**

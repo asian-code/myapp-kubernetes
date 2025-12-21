@@ -271,3 +271,110 @@ func (r *Repository) DeleteUser(ctx context.Context, userID string) error {
 	_, err := r.db.Exec(ctx, query, userID)
 	return err
 }
+
+// OAuth repository methods
+
+func (r *Repository) SaveToken(ctx context.Context, token *interfaces.OAuthToken) error {
+	query := `
+		INSERT INTO oauth_tokens (user_id, access_token, refresh_token, expires_at, scope, provider)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (user_id, provider) DO UPDATE SET
+			access_token = EXCLUDED.access_token,
+			refresh_token = EXCLUDED.refresh_token,
+			expires_at = EXCLUDED.expires_at,
+			scope = EXCLUDED.scope,
+			updated_at = NOW()
+	`
+
+	_, err := r.db.Exec(ctx, query,
+		token.UserID,
+		token.AccessToken,
+		token.RefreshToken,
+		token.ExpiresAt,
+		token.Scope,
+		token.Provider,
+	)
+	return err
+}
+
+func (r *Repository) GetToken(ctx context.Context, userID, provider string) (*interfaces.OAuthToken, error) {
+	query := `
+		SELECT user_id, access_token, refresh_token, expires_at, scope, provider, created_at, updated_at
+		FROM oauth_tokens
+		WHERE user_id = $1 AND provider = $2
+	`
+
+	var token interfaces.OAuthToken
+	err := r.db.QueryRow(ctx, query, userID, provider).Scan(
+		&token.UserID,
+		&token.AccessToken,
+		&token.RefreshToken,
+		&token.ExpiresAt,
+		&token.Scope,
+		&token.Provider,
+		&token.CreatedAt,
+		&token.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
+
+func (r *Repository) UpdateToken(ctx context.Context, token *interfaces.OAuthToken) error {
+	query := `
+		UPDATE oauth_tokens
+		SET access_token = $1, refresh_token = $2, expires_at = $3, 
+		    scope = $4, provider = $5, updated_at = NOW()
+		WHERE user_id = $6
+	`
+
+	result, err := r.db.Exec(ctx, query,
+		token.AccessToken,
+		token.RefreshToken,
+		token.ExpiresAt,
+		token.Scope,
+		token.Provider,
+		token.UserID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *Repository) DeleteToken(ctx context.Context, userID, provider string) error {
+	query := `DELETE FROM oauth_tokens WHERE user_id = $1 AND provider = $2`
+	_, err := r.db.Exec(ctx, query, userID, provider)
+	return err
+}
+
+func (r *Repository) RefreshToken(ctx context.Context, userID, provider string, newAccessToken, newRefreshToken string, expiresAt time.Time) error {
+	query := `
+		UPDATE oauth_tokens
+		SET access_token = $1, refresh_token = $2, expires_at = $3, updated_at = NOW()
+		WHERE user_id = $4 AND provider = $5
+	`
+
+	result, err := r.db.Exec(ctx, query, newAccessToken, newRefreshToken, expiresAt, userID, provider)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}

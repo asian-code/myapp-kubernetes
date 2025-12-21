@@ -127,7 +127,7 @@ func TestUserRepository_CreateAndGet_Integration(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Get user
-		user, err := repo.GetUserByID(ctx, userID)
+		_, err = repo.GetUserByID(ctx, userID)
 		assert.NoError(t, err)
 
 		// Update user
