@@ -19,8 +19,6 @@ backend-config.hcl
 .terraform.plugins/
 
 
-docs/*
-
 # Go files
 # Binaries for programs and plugins
 *.exe
