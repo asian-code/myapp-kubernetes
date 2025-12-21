@@ -18,17 +18,6 @@ func main() {
 	log := logger.Init("oura-collector")
 	cfg := config.Load()
 
-	// Validate required environment variables
-	if cfg.ProcessorURL == "" {
-		log.Fatal("PROCESSOR_URL environment variable is required")
-	}
-	if cfg.DBPassword == "" {
-		log.Fatal("DB_PASSWORD environment variable is required")
-	}
-	if cfg.UserID == "" {
-		log.Fatal("USER_ID environment variable is required")
-	}
-
 	log.Info("Starting oura-collector")
 
 	// Initialize metrics

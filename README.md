@@ -6,6 +6,8 @@
 
 A production-grade, cloud-native microservices platform for collecting, processing, and visualizing health metrics from the Oura Ring API. Built with Kubernetes on AWS EKS, this system provides comprehensive monitoring of sleep, activity, and readiness data with enterprise-level observability.
 
+> **🎉 Phase 1 Refactoring Complete!** See [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) for details on the latest architectural improvements including centralized error handling, config validation, and database migrations.
+
 ---
 
 ## 🎯 Overview

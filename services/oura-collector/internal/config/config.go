@@ -2,24 +2,27 @@ package config
 
 import (
 	"os"
+
+	"github.com/asian-code/myapp-kubernetes/services/pkg/validation"
 )
 
 type Config struct {
-	ProcessorURL string
-	LogLevel     string
-	DBHost       string
-	DBPort       string
-	DBUser       string
-	DBPassword   string
-	DBName       string
-	DBSSLMode    string
-	UserID       string // The user ID to fetch data for
+	ProcessorURL string `validate:"required,url"`
+	LogLevel     string `validate:"required,oneof=debug info warn error"`
+	DBHost       string `validate:"required"`
+	DBPort       string `validate:"required"`
+	DBUser       string `validate:"required"`
+	DBPassword   string `validate:"required"`
+	DBName       string `validate:"required"`
+	DBSSLMode    string `validate:"required,oneof=disable require verify-ca verify-full"`
+	UserID       string `validate:"required"` // The user ID to fetch data for
 }
 
+// Load loads and validates configuration from environment variables
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		ProcessorURL: os.Getenv("PROCESSOR_URL"),
-		LogLevel:     os.Getenv("LOG_LEVEL"),
+		LogLevel:     getEnv("LOG_LEVEL", "info"),
 		DBHost:       getEnv("DB_HOST", "localhost"),
 		DBPort:       getEnv("DB_PORT", "5432"),
 		DBUser:       getEnv("DB_USER", "myhealth_user"),
@@ -28,6 +31,11 @@ func Load() *Config {
 		DBSSLMode:    getEnv("DB_SSLMODE", "require"),
 		UserID:       os.Getenv("USER_ID"),
 	}
+
+	// Validate configuration and panic if invalid
+	validation.MustValidate(cfg)
+
+	return cfg
 }
 
 func getEnv(key, defaultValue string) string {

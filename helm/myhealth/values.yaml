@@ -39,6 +39,28 @@ rbac:
 networkPolicies:
   enabled: true
 
+# Database Migrator (Helm Hook Job)
+migrator:
+  enabled: true
+  image:
+    repository: "myhealth/migrator"
+    tag: "latest"
+  env:
+    dbSSLMode: "require"
+  secret:
+    name: myhealth-secrets
+    dbHostField: db_host
+    dbUserField: db_user
+    dbPassField: db_password
+    dbNameField: db_name
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
 # Oura Collector (CronJob)
 ouraCollector:
   enabled: true

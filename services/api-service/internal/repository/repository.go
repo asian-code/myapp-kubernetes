@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/asian-code/myapp-kubernetes/services/pkg/interfaces"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,46 +20,6 @@ func New(db *pgxpool.Pool, logger *log.Entry) *Repository {
 		db:     db,
 		logger: logger,
 	}
-}
-
-// InitSchema creates users and oauth_tokens tables if they don't exist
-func (r *Repository) InitSchema(ctx context.Context) error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			username VARCHAR(255) UNIQUE NOT NULL,
-			email VARCHAR(255) UNIQUE NOT NULL,
-			password_hash VARCHAR(255) NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			last_login TIMESTAMP,
-			is_active BOOLEAN DEFAULT true
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`,
-		`CREATE TABLE IF NOT EXISTS oauth_tokens (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			provider VARCHAR(50) NOT NULL DEFAULT 'oura',
-			access_token TEXT NOT NULL,
-			refresh_token TEXT NOT NULL,
-			token_type VARCHAR(50) DEFAULT 'Bearer',
-			expires_at TIMESTAMP NOT NULL,
-			scope TEXT,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(user_id, provider)
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user_provider ON oauth_tokens(user_id, provider)`,
-	}
-
-	for _, query := range queries {
-		if _, err := r.db.Exec(ctx, query); err != nil {
-			return err
-		}
-	}
-
-	r.logger.Info("Database schema initialized (users, oauth_tokens)")
-	return nil
 }
 
 type SleepMetric struct {
@@ -161,4 +123,151 @@ func (r *Repository) GetReadinessMetrics(ctx context.Context, startDate, endDate
 	}
 
 	return metrics, rows.Err()
+}
+
+// User repository methods
+
+func (r *Repository) CreateUser(ctx context.Context, username, email, passwordHash string) (string, error) {
+	query := `
+		INSERT INTO users (username, email, password_hash)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
+
+	var userID string
+	err := r.db.QueryRow(ctx, query, username, email, passwordHash).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+
+	return userID, nil
+}
+
+func (r *Repository) GetUserByID(ctx context.Context, userID string) (*interfaces.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, created_at, updated_at, last_login
+		FROM users
+		WHERE id = $1
+	`
+
+	var user interfaces.User
+	err := r.db.QueryRow(ctx, query, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.LastLogin,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*interfaces.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, created_at, updated_at, last_login
+		FROM users
+		WHERE username = $1
+	`
+
+	var user interfaces.User
+	err := r.db.QueryRow(ctx, query, username).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.LastLogin,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*interfaces.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, created_at, updated_at, last_login
+		FROM users
+		WHERE email = $1
+	`
+
+	var user interfaces.User
+	err := r.db.QueryRow(ctx, query, email).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.LastLogin,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) UpdateLastLogin(ctx context.Context, userID string, loginTime time.Time) error {
+	query := `
+		UPDATE users
+		SET last_login = $1, updated_at = $2
+		WHERE id = $3
+	`
+
+	_, err := r.db.Exec(ctx, query, loginTime, time.Now(), userID)
+	return err
+}
+
+func (r *Repository) UpdateUser(ctx context.Context, userID string, updates map[string]interface{}) error {
+	// Build dynamic update query based on provided fields
+	if len(updates) == 0 {
+		return nil
+	}
+
+	query := "UPDATE users SET "
+	args := []interface{}{}
+	argNum := 1
+
+	for field, value := range updates {
+		if argNum > 1 {
+			query += ", "
+		}
+		query += field + " = $" + string(rune(argNum+'0'))
+		args = append(args, value)
+		argNum++
+	}
+
+	// Always update updated_at
+	query += ", updated_at = $" + string(rune(argNum+'0'))
+	args = append(args, time.Now())
+	argNum++
+
+	query += " WHERE id = $" + string(rune(argNum+'0'))
+	args = append(args, userID)
+
+	_, err := r.db.Exec(ctx, query, args...)
+	return err
+}
+
+func (r *Repository) DeleteUser(ctx context.Context, userID string) error {
+	query := `DELETE FROM users WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, userID)
+	return err
 }

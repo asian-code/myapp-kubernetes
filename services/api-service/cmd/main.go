@@ -25,14 +25,6 @@ func main() {
 	log := logger.Init("api-service")
 	cfg := config.Load()
 
-	// Validate required environment variables
-	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
-	}
-	if cfg.DBPassword == "" {
-		log.Fatal("DB_PASSWORD environment variable is required")
-	}
-
 	log.Info("Starting api-service")
 
 	// Connect to database
@@ -55,11 +47,6 @@ func main() {
 
 	// Initialize repository
 	repo := repository.New(db, log)
-
-	// Initialize database schema (creates users and oauth_tokens tables)
-	if err := repo.InitSchema(ctx); err != nil {
-		log.WithError(err).Fatal("Failed to initialize database schema")
-	}
 
 	// Initialize metrics
 	m := metrics.New("api-service")

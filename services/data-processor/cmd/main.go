@@ -21,11 +21,6 @@ func main() {
 	log := logger.Init("data-processor")
 	cfg := config.Load()
 
-	// Validate required environment variables
-	if cfg.DBPassword == "" {
-		log.Fatal("DB_PASSWORD environment variable is required")
-	}
-
 	log.Info("Starting data-processor service")
 
 	// Connect to database
@@ -48,9 +43,6 @@ func main() {
 
 	// Initialize repository
 	repo := repository.New(db, log)
-	if err := repo.InitSchema(ctx); err != nil {
-		log.WithError(err).Fatal("Failed to initialize database schema")
-	}
 
 	// Initialize metrics
 	m := metrics.New("data-processor")

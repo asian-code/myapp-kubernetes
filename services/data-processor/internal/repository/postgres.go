@@ -20,53 +20,6 @@ func New(db *pgxpool.Pool, logger *log.Entry) *Repository {
 	}
 }
 
-// Initialize database schema
-func (r *Repository) InitSchema(ctx context.Context) error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS sleep_metrics (
-			id SERIAL PRIMARY KEY,
-			oura_id VARCHAR(255) UNIQUE,
-			day DATE NOT NULL,
-			score INTEGER,
-			duration INTEGER,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
-		`CREATE TABLE IF NOT EXISTS activity_metrics (
-			id SERIAL PRIMARY KEY,
-			oura_id VARCHAR(255) UNIQUE,
-			day DATE NOT NULL,
-			score INTEGER,
-			active_calories INTEGER,
-			steps INTEGER,
-			medium_activity_minutes INTEGER,
-			high_activity_minutes INTEGER,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
-		`CREATE TABLE IF NOT EXISTS readiness_metrics (
-			id SERIAL PRIMARY KEY,
-			oura_id VARCHAR(255) UNIQUE,
-			day DATE NOT NULL,
-			score INTEGER,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_sleep_day ON sleep_metrics(day)`,
-		`CREATE INDEX IF NOT EXISTS idx_activity_day ON activity_metrics(day)`,
-		`CREATE INDEX IF NOT EXISTS idx_readiness_day ON readiness_metrics(day)`,
-	}
-
-	for _, query := range queries {
-		if _, err := r.db.Exec(ctx, query); err != nil {
-			return err
-		}
-	}
-
-	r.logger.Info("Database schema initialized")
-	return nil
-}
-
 type SleepMetric struct {
 	OuraID   string
 	Day      time.Time
@@ -75,13 +28,13 @@ type SleepMetric struct {
 }
 
 type ActivityMetric struct {
-	OuraID              string
-	Day                 time.Time
-	Score               int
-	ActiveCalories      int
-	Steps               int
-	MediumActivityMin   int
-	HighActivityMin     int
+	OuraID            string
+	Day               time.Time
+	Score             int
+	ActiveCalories    int
+	Steps             int
+	MediumActivityMin int
+	HighActivityMin   int
 }
 
 type ReadinessMetric struct {

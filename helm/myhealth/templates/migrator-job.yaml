@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "myhealth.fullname" . }}-migrator
+  labels:
+    {{- include "myhealth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrator
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ include "myhealth.fullname" . }}-migrator
+      labels:
+        {{- include "myhealth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrator
+    spec:
+      restartPolicy: Never
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "myhealth.serviceAccountName" . }}
+      {{- end }}
+      containers:
+      - name: migrator
+        image: "{{ .Values.imageRegistry }}/{{ .Values.migrator.image.repository }}:{{ .Values.migrator.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalSecrets.targetSecretName }}
+              key: {{ .Values.migrator.secret.dbHostField }}
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalSecrets.targetSecretName }}
+              key: {{ .Values.migrator.secret.dbUserField }}
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalSecrets.targetSecretName }}
+              key: {{ .Values.migrator.secret.dbPassField }}
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalSecrets.targetSecretName }}
+              key: {{ .Values.migrator.secret.dbNameField }}
+        - name: DB_SSLMODE
+          value: {{ .Values.migrator.env.dbSSLMode | quote }}
+        - name: MIGRATIONS_PATH
+          value: "file:///migrations"
+        resources:
+          {{- toYaml .Values.migrator.resources | nindent 10 }}

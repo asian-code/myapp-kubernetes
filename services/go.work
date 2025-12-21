@@ -5,4 +5,6 @@ use (
 	./data-processor
 	./oura-collector
 	./shared
+	./pkg
+	./migrator
 )
