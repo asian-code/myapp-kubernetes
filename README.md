@@ -6,8 +6,6 @@
 
 A production-grade, cloud-native microservices platform for collecting, processing, and visualizing health metrics from the Oura Ring API. Built with Kubernetes on AWS EKS, this system provides comprehensive monitoring of sleep, activity, and readiness data with enterprise-level observability.
 
----
-
 ## 🎯 Overview
 
 myHealth is a personal health monitoring solution that integrates with the Oura Ring API to collect daily health metrics and provides a powerful analytics platform. The system is designed with cloud-native principles, featuring microservices architecture, automated CI/CD, and production-grade disaster recovery.
